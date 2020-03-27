@@ -239,7 +239,7 @@ def main():
         last_detected_face = [0, 0, 0]
         face_finder = face_localizer()
 
-        rate = rospy.Rate(1)
+        rate = rospy.Rate(2)
         while not rospy.is_shutdown():
             face_finder.find_faces()
             rate.sleep()
