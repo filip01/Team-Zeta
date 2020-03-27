@@ -1,4 +1,30 @@
- # The function for performin HOG face detection
+#!/usr/bin/env python
+from __future__ import print_function
+
+import sys
+import rospy
+import dlib
+import cv2
+import numpy as np
+import tf2_geometry_msgs
+import tf2_ros
+#import matplotlib.pyplot as plt
+from sensor_msgs.msg import Image
+from geometry_msgs.msg import PointStamped, Vector3, Pose
+from cv_bridge import CvBridge, CvBridgeError
+from visualization_msgs.msg import Marker, MarkerArray
+from std_msgs.msg import ColorRGBA
+
+
+class face_localizer:
+    def __init__(self):
+        rospy.init_node('face_localizer', anonymous=True)
+
+        # An object we use for converting images between ROS format and OpenCV format
+        self.bridge = CvBridge()
+
+        # The function for performin HOG face detection
+         # The function for performin HOG face detection
         self.face_detector = dlib.get_frontal_face_detector()
 
         # A help variable for holding the dimensions of the image
