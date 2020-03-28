@@ -40,7 +40,7 @@ class face_localizer:
 
         # Subscribe to the image and/or depth topic
         # self.image_sub = rospy.Subscriber("/camera/rgb/image_raw", Image, self.image_callback)
-        # self.depth_sub = rospy.Subscriber("/camera/depth/image_raw", Image, self.depth_callback)
+       # self.depth_sub = rospy.Subscriber("/camera/depth/image_raw", Image, self.depth_callback)
 
         # Publiser for the visualization markers
         self.markers_pub = rospy.Publisher('face_markers', MarkerArray, queue_size=1000)
@@ -86,9 +86,11 @@ class face_localizer:
             point_world = self.tf_buf.transform(point_s, "map")
             add = True
             margin = 1
-            margin1 = 0.05
+            margin1 = 0.1
+
             for i in range(len(detected_faces)):
                  if detected_faces[i][0] + margin > point_world.point.x and detected_faces[i][0] - margin < point_world.point.x and detected_faces[i][1] + margin > point_world.point.y and detected_faces[i][1] - margin < point_world.point.y and detected_faces[i][2] + margin > point_world.point.z and detected_faces[i][2] - margin < point_world.point.z:
+                    print("face already detected!")
                     add = False
                     break
 
@@ -146,13 +148,11 @@ class face_localizer:
         # Set the dimensions of the image
         self.dims = rgb_image.shape
 
-        # Tranform image to gayscale
+        # Preprocessing
         gray = cv2.cvtColor(rgb_image, cv2.COLOR_BGR2GRAY)
         img = cv2.equalizeHist(gray)
-        # Do histogram equlization
-        #
-       
-        
+      
+    
         image_scale = rgb_image.shape[1]
 
         #smallImage = cv2.resize(gray, (int(rgb_image.shape[1] / image_scale), int(rgb_image.shape[0] / image_scale)), interpolation=cv2.INTER_LINEAR)
@@ -184,7 +184,7 @@ class face_localizer:
             # Extract region containing face
             #print(x1,x2,y1,y2)
             #print(x1d,x2d,y1d,y2d)
-            face_region = rgb_image[y1d:y2d,x1d:x2d]
+            face_region = rgb_image[y1:y2,x1:x2]
         
             # Visualize the extracted face
             cv2.imshow("Depth window", face_region)
@@ -235,8 +235,8 @@ class face_localizer:
         
         image_viz = np.array(image_1, dtype=np.uint8)
 
-        #cv2.imshow("Depth window", image_viz)
-        #cv2.waitKey(1)
+        cv2.imshow("Depth window", image_viz)
+        cv2.waitKey(1)
 
         #plt.imshow(depth_image)
         #plt.show()
