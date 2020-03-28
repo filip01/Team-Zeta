@@ -24,6 +24,7 @@ class face_localizer:
         self.bridge = CvBridge()
 
         # The function for performin HOG face detection
+
         self.face_detector = dlib.get_frontal_face_detector()
 
         # A help variable for holding the dimensions of the image
