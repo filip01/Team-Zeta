@@ -80,8 +80,31 @@ class face_localizer:
         # Get the point in the "map" coordinate system
         try:
             point_world = self.tf_buf.transform(point_s, "map")
+            add = True
+            margin = 0.3
+            margin1 = 0.1
+            for i in range(len(detected_faces)):
+                 if detected_faces[i][0] + margin > point_world.point.x and detected_faces[i][0] - margin < point_world.point.x and detected_faces[i][1] + margin > point_world.point.y and detected_faces[i][1] - margin < point_world.point.y and detected_faces[i][2] + margin > point_world.point.z and detected_faces[i][2] - margin < point_world.point.z:
+                    add = False
+                    break
 
             # Create a Pose object with the same position
+            if add:
+                pose = Pose()
+                pose.position.x = point_world.point.x
+                pose.position.y = point_world.point.y
+                pose.position.z = point_world.point.z
+                if last_detected_face[0] + margin1 > point_world.point.x and last_detected_face[0] - margin1 < point_world.point.x and last_detected_face[1] + margin1 > point_world.point.y and last_detected_face[1] - margin1 < point_world.point.y and last_detected_face[2] + margin1 > point_world.point.z and last_detected_face[2] - margin1 < point_world.point.z:
+                    detected_faces.append([point_world.point.x, point_world.point.y, point_world.point.z])
+                else:
+                    pose = None
+                last_detected_face[0] = point_world.point.x
+                last_detected_face[1] = point_world.point.y
+                last_detected_face[2] = point_world.point.z
+            else:
+                pose = None
+            for i in range(len(detected_faces)):
+                print(detected_faces[i])
             pose = Pose()
             pose.position.x = point_world.point.x
             pose.position.y = point_world.point.y
@@ -215,6 +238,10 @@ class face_localizer:
 
 def main():
 
+        global detected_faces
+        detected_faces = []
+        global last_detected_face
+        last_detected_face = [0, 0, 0]
         face_finder = face_localizer()
 
         rate = rospy.Rate(2)
