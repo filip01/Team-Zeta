@@ -46,7 +46,7 @@ if __name__ == "__main__":
 
         num_detect = len(faces)
         if num_detect > 1: # Only one face per image
-            fp = fp + num_detect - 1
+            fp = fp + 1
         elif num_detect == 0: # Assume that every frame contains face
             fn = fn + 1
 
