@@ -1,29 +1,4 @@
-#!/usr/bin/env python
-from __future__ import print_function
-
-import sys
-import rospy
-import dlib
-import cv2
-import numpy as np
-import tf2_geometry_msgs
-import tf2_ros
-#import matplotlib.pyplot as plt
-from sensor_msgs.msg import Image
-from geometry_msgs.msg import PointStamped, Vector3, Pose
-from cv_bridge import CvBridge, CvBridgeError
-from visualization_msgs.msg import Marker, MarkerArray
-from std_msgs.msg import ColorRGBA
-
-
-class face_localizer:
-    def __init__(self):
-        rospy.init_node('face_localizer', anonymous=True)
-
-        # An object we use for converting images between ROS format and OpenCV format
-        self.bridge = CvBridge()
-
-        # The function for performin HOG face detection
+ # The function for performin HOG face detection
         self.face_detector = dlib.get_frontal_face_detector()
 
         # A help variable for holding the dimensions of the image
@@ -70,7 +45,7 @@ class face_localizer:
 
         # Define a stamped message for transformation - in the "camera rgb frame"
         point_s = PointStamped()
-        point_s.point.x = y
+        point_s.point.x = -y
         point_s.point.y = 0
         point_s.point.z = x
         point_s.header.frame_id = "camera_rgb_optical_frame"
@@ -79,23 +54,12 @@ class face_localizer:
         # Get the point in the "map" coordinate system
         try:
             point_world = self.tf_buf.transform(point_s, "map")
-            add = True
-            margin = 0.4
-            for i in range(len(detected_faces)):
-                 if detected_faces[i][0] + margin > point_world.point.x and detected_faces[i][0] - margin < point_world.point.x and detected_faces[i][1] + margin > point_world.point.y and detected_faces[i][1] - margin < point_world.point.y and detected_faces[i][2] + margin > point_world.point.z and detected_faces[i][2] - margin < point_world.point.z:
-                    add = False
-                    break
+
             # Create a Pose object with the same position
-            if add:
-                pose = Pose()
-                pose.position.x = point_world.point.x
-                pose.position.y = point_world.point.y
-                pose.position.z = point_world.point.z
-                detected_faces.append([point_world.point.x, point_world.point.y, point_world.point.z])
-            else:
-                pose = None
-            for i in range(len(detected_faces)):
-                print(detected_faces[i])
+            pose = Pose()
+            pose.position.x = point_world.point.x
+            pose.position.y = point_world.point.y
+            pose.position.z = point_world.point.z
         except Exception as e:
             print(e)
             pose = None
@@ -104,7 +68,8 @@ class face_localizer:
     
 
     def find_faces(self):
-        print('I got a new image!')
+
+       # print('I got a new image!')
 
         # Get the next rgb and depth images that are posted from the camera
         try:
@@ -145,7 +110,7 @@ class face_localizer:
 
         # For each detected face, extract the depth from the depth image
         for face_rectangle in face_rectangles:
-            print('Faces were detected')
+            #print('Faces were detected\nNumber of faces: ',len(face_rectangles))
 
             # The coordinates of the rectanle
             x1 = face_rectangle.left()
@@ -153,15 +118,27 @@ class face_localizer:
             y1 = face_rectangle.top()
             y2 = face_rectangle.bottom()
 
-            # Extract region containing face
-            face_region = rgb_image[y1:y2,x1:x2]
+            dx=int((x2-x1)/4)
+            dy=int((y2-y1)/4)
 
+            x1d= x1 + dx 
+            x2d= x2 - dx
+            y1d= y1 + dy
+            y2d= y2 - dy
+            
+
+            # Extract region containing face
+            #print(x1,x2,y1,y2)
+            #print(x1d,x2d,y1d,y2d)
+            face_region = rgb_image[y1d:y2d,x1d:x2d]
+        
             # Visualize the extracted face
-            # cv2.imshow("Depth window", face_region)
-            # cv2.waitKey(1)
+            cv2.imshow("Depth window", face_region)
+            cv2.waitKey(1)
+
 
             # Find the distance to the detected face
-            face_distance = float(np.nanmean(depth_image[y1:y2,x1:x2]))
+            face_distance = float(np.nanmean(depth_image[y1d:y2d,x1d:x2d]))
 
             print('Distance to face', face_distance)
 
@@ -206,13 +183,12 @@ class face_localizer:
 
         #cv2.imshow("Depth window", image_viz)
         #cv2.waitKey(1)
+
         #plt.imshow(depth_image)
         #plt.show()
 
 def main():
 
-        global detected_faces
-        detected_faces = []
         face_finder = face_localizer()
 
         rate = rospy.Rate(1)
