@@ -142,11 +142,11 @@ int current=0;
 
        ROS_INFO("Goal reached!, spinninig...");
         ros::Time begin = ros::Time::now();
-        ros::Rate rate(2);
+        ros::Rate rate(10);
 
-         while(ros::Time::now() - begin < (ros::Duration) 10){
+         while(ros::Time::now() - begin < (ros::Duration) 6){
             geometry_msgs::Twist msg;
-            msg.angular.z=0.7;
+            msg.angular.z=1;
             pub.publish(msg);
             rate.sleep();
          }
