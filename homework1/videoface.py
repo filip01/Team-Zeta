@@ -17,8 +17,8 @@ if __name__ == "__main__":
     video_path = sys.argv[1]
     cap = cv2.VideoCapture(video_path)
 
-    initial_distance = int(sys.argv[2])
-    final_distance = int(sys.argv[3])
+    initial_distance = float(sys.argv[2])
+    final_distance = float(sys.argv[3])
     num_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
     fps = int(cap.get(cv2.CAP_PROP_FPS))
     video_t = num_frames / float(fps)
