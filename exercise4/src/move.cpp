@@ -81,8 +81,14 @@ void mapCallback(const nav_msgs::OccupancyGridConstPtr& msg_map) {
 
 }
 
-int points[6][2] = { 285, 198, 282, 161, 306, 188, 335, 191, 333, 209, 306, 211};
+int points[6][2] = { 285, 198, 282, 161, 306, 185, 335, 191, 333, 209, 306, 211};
+double goalOrientations[6] = { (double)7/5, (double)6/5, (double)1/4,(double)1/2, (double) 1/4, (double)1/2 };
+int rotationTime[6] = {3, 5, 6, 3, 4, 5};
+double rotationSpeed[6] = {-0.7, -0.7, 0.7, -0.7, -0.7, 0.7};
+
 int current=0;
+
+
 
  bool goals(move_base_msgs::MoveBaseGoal goal,  ros::Publisher &pub) {
     
@@ -108,7 +114,7 @@ int current=0;
 
 
     int v = (int)cv_map.at<unsigned char>(y,x);
-    current++;
+    
 
 
 	if (v != 255) {
@@ -132,9 +138,19 @@ int current=0;
      goal.target_pose.header.stamp = ros::Time::now();
      goal.target_pose.pose.position.x = transformed_pt.x;
      goal.target_pose.pose.position.y = transformed_pt.y;
-     goal.target_pose.pose.orientation.w = 1;
-     
 
+     tf2::Quaternion q;
+     double r=3.14159;
+     double angle = goalOrientations[current];
+
+
+     q.setRPY(0,0, angle *  r);
+
+     goal.target_pose.pose.orientation.z = q.getZ();
+     goal.target_pose.pose.orientation.w = q.getW();
+
+     goal.target_pose.pose.orientation.x = 0;
+     goal.target_pose.pose.orientation.y = 0;
      ac.sendGoal(goal);
      ac.waitForResult();
    
@@ -144,18 +160,22 @@ int current=0;
         ros::Time begin = ros::Time::now();
         ros::Rate rate(10);
 
-         while(ros::Time::now() - begin < (ros::Duration) 6){
             geometry_msgs::Twist msg;
-            msg.angular.z=1;
+          
+           
+
+         while(ros::Time::now() - begin < (ros::Duration) rotationTime[current]){
+            msg.angular.z=rotationSpeed[current];
             pub.publish(msg);
             rate.sleep();
          }
-         ROS_INFO("Done spinning");
+           ROS_INFO("Done spinning");
 
         } else {
             ROS_INFO("Could not reach my goal, continuing with the next checkpoint");
         }
-       
+        
+        current++;
 
        return false;
 }
@@ -170,23 +190,13 @@ int main(int argc, char** argv) {
     move_base_msgs::MoveBaseGoal goal;
     
    ros::Publisher pub = n.advertise<geometry_msgs::Twist>("/mobile_base/commands/velocity", 1000);
-                
-     
-  
-        
    
     while(ros::ok()) {
-
-     
-
         
         if(goals(goal, pub)){
           return 0;
         }
 
-    
-
-     
         ros::spinOnce();
     }
     return 1;
