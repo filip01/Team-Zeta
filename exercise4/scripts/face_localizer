@@ -230,8 +230,6 @@ class face_localizer:
                 pose.orientation.z = 0.0
                 pose.orientation.w = 1.0
                 self.pose_pub.publish(pose)
-                self.markers_pub.publish(self.marker_array)
-            
             
             self.markers_pub.publish(self.marker_array)
     
