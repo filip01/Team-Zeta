@@ -267,6 +267,7 @@ class face_localizer:
         pose.orientation = quaternion_from_euler(0,0,angle)
 
         # post pose
+        self.pose_pub.publish(ppose)
 
     def depth_callback(self,data):
 
