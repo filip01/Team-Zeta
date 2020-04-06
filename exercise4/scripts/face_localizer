@@ -87,7 +87,7 @@ class face_localizer:
         try:
             point_world = self.tf_buf.transform(point_s, "map")
             add = True
-            margin = 1
+            margin = 0.5
             margin1 = 0.1
 
             for i in range(len(detected_faces)):
@@ -165,6 +165,7 @@ class face_localizer:
         # face_rectangles = self.face_detector(rgb_image, 0)
 
         # For each detected face, extract the depth from the depth image
+        self.markers_pub.publish(self.marker_array)
         for (x,y,w,h) in faces:
             #print('Faces were detected\nNumber of faces: ',len(face_rectangles))
 
@@ -228,7 +229,8 @@ class face_localizer:
                 pose.orientation.z = 0.0
                 pose.orientation.w = 1.0
                 self.pose_pub.publish(pose)
-                
+                self.markers_pub.publish(self.marker_array)
+            
             
             self.markers_pub.publish(self.marker_array)
     
