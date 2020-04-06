@@ -224,13 +224,7 @@ class face_localizer:
                 marker.color = ColorRGBA(0, 1, 0, 1)
                 self.marker_array.markers.append(marker)
 
-
-                # pub_front_face
-                pose.orientation.x = 0.0
-                pose.orientation.y = 0.0
-                pose.orientation.z = 0.0
-                pose.orientation.w = 1.0
-                self.pose_pub.publish(pose)
+                pub_front_face(pose)
             
             self.markers_pub.publish(self.marker_array)
     
