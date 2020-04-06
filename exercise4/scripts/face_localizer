@@ -82,7 +82,8 @@ class face_localizer:
         point_s.point.z = x
         point_s.header.frame_id = "camera_rgb_optical_frame"
         point_s.header.stamp = stamp
-
+        print(self.dims[1])
+        print(self.dims[0])
         # Get the point in the "map" coordinate system
         try:
             point_world = self.tf_buf.transform(point_s, "map")
