@@ -83,8 +83,6 @@ class face_localizer:
         point_s.point.z = x
         point_s.header.frame_id = "camera_rgb_optical_frame"
         point_s.header.stamp = stamp
-        print(self.dims[1])
-        print(self.dims[0])
         # Get the point in the "map" coordinate system
         try:
             point_world = self.tf_buf.transform(point_s, "map")
@@ -247,17 +245,18 @@ class face_localizer:
 
         dx = x - xF
         dy = y - yF
-        xN = dx / float(dx + dy) # normalize
-        yN = dy / float(dx + dy)
-
+        z = (dx**2 + dy**2)**(1/2)
+        
         dist = 0.4
 
+        xPlus = (z-dist)*dx/z
+        yPlus = (z-dist)*dy/z
         pose = Pose()
-        pose.position.x = xF + dist*xN
-        pose.position.y = yF + dist*yN
+        pose.position.x = x + xPlus
+        pose.position.y = y + yPlus
         pose.position.z = 0
 
-        angle = np.arctan2(y-yF,x-xF)
+        angle = np.arctan2(yF-y,xF-x)
 
         q = quaternion_from_euler(0,0,angle)
 
