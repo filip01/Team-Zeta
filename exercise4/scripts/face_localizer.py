@@ -231,7 +231,6 @@ class face_localizer:
                 pose.orientation.w = 1.0
                 self.pose_pub.publish(pose)
                 self.markers_pub.publish(self.marker_array)
-                pub_front_face(self, self.marker_array)
     
     def pub_front_face(self, face_pose):
         xF = face_pose.position.x
@@ -264,7 +263,12 @@ class face_localizer:
         pose.orientation.x = 0
         pose.orientation.y = 0
 
-        #? angle = arctan2(y-yF,x-xF)
+        angle = arctan2(dy,dx)
+        
+        if dx > 0:
+         angle = angle
+        else:
+          angle = angle + 180
 
         #TODO: get orientation
 

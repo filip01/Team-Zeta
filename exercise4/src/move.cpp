@@ -200,7 +200,7 @@ void newFaceLocation(const geometry_msgs::Pose pose)
     ROS_INFO("X: %f Y: %f", pose.position.x, pose.position.y);
     double x = (double) pose.position.x;
     double y= (double) pose.position.y-0.5;
-
+    
     /*move_base_msgs::MoveBaseGoal goalApproach;
 
      goalApproach.target_pose.header.frame_id = "map";
