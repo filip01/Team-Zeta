@@ -222,6 +222,7 @@ class face_localizer:
                 self.marker_array.markers.append(marker)
 
 
+                # pub_front_face
                 pose.orientation.x = 0.0
                 pose.orientation.y = 0.0
                 pose.orientation.z = 0.0
@@ -230,6 +231,41 @@ class face_localizer:
                 
             
             self.markers_pub.publish(self.marker_array)
+    
+    def pub_front_face(self, face_pose):
+        xF = face_pose.position.x
+        yF = face_pose.position.y
+        point_s = PointStamped()
+        point_s.point.x = 0
+        point_s.point.y = 0
+        point_s.point.z = 0
+        point_s.header.frame_id = "base_link"
+        point_s.header.stamp = rospy.Time(0)
+
+        try:
+            point_world = self.tf_buf.transform(point_s, "map")
+        except Exception as e:
+            print(e)
+
+        x, y = point_world.point.x, point_world.y
+
+        dx = x - xF
+        dy = y - yF
+        xN = dx / float(dx + dy) # normalize
+        yN = dy / float(dx + dy)
+
+        dist = 0.4
+
+        pose = Pose()
+        pose.position.x = xF + dist*xN
+        pose.position.y = yF + dist*yN
+        pose.position.z = 0
+        pose.orientation.x = 0
+        pose.orientation.y = 0
+
+        #? angle = arctan2(y-yF,x-xF)
+
+        #TODO: get orientation
 
     def depth_callback(self,data):
 
