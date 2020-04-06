@@ -23,6 +23,8 @@ geometry_msgs::TransformStamped map_transform;
 ros::Subscriber map_sub;
 typedef actionlib::SimpleActionClient<move_base_msgs::MoveBaseAction> MoveBaseClient;
 
+
+
 void mapCallback(const nav_msgs::OccupancyGridConstPtr& msg_map) {
     int size_x = msg_map->info.width;
     int size_y = msg_map->info.height;
@@ -82,8 +84,8 @@ void mapCallback(const nav_msgs::OccupancyGridConstPtr& msg_map) {
 }
 
 int points[6][2] = { 285, 198, 282, 161, 306, 185, 335, 191, 333, 209, 306, 211};
-double goalOrientations[6] = { (double)7/5, (double)6/5, (double)1/4,(double)1/2, (double) 1/4, (double)1/2 };
-int rotationTime[6] = {3, 5, 6, 3, 4, 5};
+double goalOrientations[6] = { (double)7/5, (double)6/5, (double)1/4,(double)1/2, (double) 1/4, (double)1/3 };
+int rotationTime[6] = {3, 5, 6, 3, 4, 6};
 double rotationSpeed[6] = {-0.7, -0.7, 0.7, -0.7, -0.7, 0.7};
 
 int current=0;
@@ -101,7 +103,7 @@ int current=0;
     }
 
     //tell the action client that we want to spin a thread by default
-    MoveBaseClient ac("move_base", true);
+     MoveBaseClient ac("move_base", true);
    
      //wait for the action server to come up
      while(!ac.waitForServer(ros::Duration(5.0))){
@@ -142,8 +144,7 @@ int current=0;
      tf2::Quaternion q;
      double r=3.14159;
      double angle = goalOrientations[current];
-
-
+  
      q.setRPY(0,0, angle *  r);
 
      goal.target_pose.pose.orientation.z = q.getZ();
@@ -180,6 +181,60 @@ int current=0;
        return false;
 }
 
+int numOfFaces=1;
+
+//TO DO
+
+void newFaceLocation(const geometry_msgs::Pose pose)
+{
+   /* //tell the action client that we want to spin a thread by default
+     MoveBaseClient ac("move_base", true);
+
+      //wait for the action server to come up
+     while(!ac.waitForServer(ros::Duration(5.0))){
+       ROS_INFO("Waiting for the move_base action server to come up");
+     }
+    */
+    ROS_INFO("Got a new face! num: %d",numOfFaces);
+    numOfFaces++;
+    ROS_INFO("X: %f Y: %f", pose.position.x, pose.position.y);
+    double x = (double) pose.position.x;
+    double y= (double) pose.position.y-0.5;
+
+    /*move_base_msgs::MoveBaseGoal goalApproach;
+
+     goalApproach.target_pose.header.frame_id = "map";
+     goalApproach.target_pose.header.stamp = ros::Time::now();
+     goalApproach.target_pose.pose.position.x = x;
+     goalApproach.target_pose.pose.position.y = y; 
+
+     tf2::Quaternion q; 
+     double r=3.14159;
+     double angle = 0.5 ;
+  
+     q.setRPY(0,0, angle *  r);
+
+     goalApproach.target_pose.pose.orientation.z = q.getZ();
+     goalApproach.target_pose.pose.orientation.w = q.getW();
+     goalApproach.target_pose.pose.orientation.x = 0;
+     goalApproach.target_pose.pose.orientation.y = 0;
+      //ROS_INFO("hey1 %f %f",q.getZ(), q.getW()); 
+
+     ac.sendGoal(goalApproach);
+     ac.waitForResult();
+
+     if(ac.getState() == actionlib::SimpleClientGoalState::SUCCEEDED){
+
+           ROS_INFO("Face approached");
+          ros::Duration(1).sleep();
+
+        } else {
+            ROS_INFO("Could not approach face :(");
+        }
+  */
+  
+}
+
 int main(int argc, char** argv) {
 
     ros::init(argc, argv, "move");
@@ -188,8 +243,10 @@ int main(int argc, char** argv) {
 
     map_sub = n.subscribe("map", 10, &mapCallback);
     move_base_msgs::MoveBaseGoal goal;
+
     
    ros::Publisher pub = n.advertise<geometry_msgs::Twist>("/mobile_base/commands/velocity", 1000);
+   ros::Subscriber sub = n.subscribe<geometry_msgs::Pose>("new_faces",1000, newFaceLocation);
    
     while(ros::ok()) {
         
