@@ -185,40 +185,33 @@ int numOfFaces=1;
 
 //TO DO
 
-void newFaceLocation(const geometry_msgs::Pose pose)
+void approachFace(const geometry_msgs::Pose pose)
 {
-   /* //tell the action client that we want to spin a thread by default
+    //tell the action client that we want to spin a thread by default
      MoveBaseClient ac("move_base", true);
 
       //wait for the action server to come up
      while(!ac.waitForServer(ros::Duration(5.0))){
        ROS_INFO("Waiting for the move_base action server to come up");
      }
-    */
+    
     ROS_INFO("Got a new face! num: %d",numOfFaces);
     numOfFaces++;
-    ROS_INFO("X: %f Y: %f", pose.position.x, pose.position.y);
-    double x = (double) pose.position.x;
-    double y= (double) pose.position.y-0.5;
+    
 
-    /*move_base_msgs::MoveBaseGoal goalApproach;
+    
+
+    move_base_msgs::MoveBaseGoal goalApproach;
 
      goalApproach.target_pose.header.frame_id = "map";
      goalApproach.target_pose.header.stamp = ros::Time::now();
-     goalApproach.target_pose.pose.position.x = x;
-     goalApproach.target_pose.pose.position.y = y; 
-
-     tf2::Quaternion q; 
-     double r=3.14159;
-     double angle = 0.5 ;
-  
-     q.setRPY(0,0, angle *  r);
-
-     goalApproach.target_pose.pose.orientation.z = q.getZ();
-     goalApproach.target_pose.pose.orientation.w = q.getW();
+     goalApproach.target_pose.pose.position.x = pose.position.x;
+     goalApproach.target_pose.pose.position.y = pose.position.y;
+     goalApproach.target_pose.pose.orientation.z = pose.orientation.z;
+     goalApproach.target_pose.pose.orientation.w = pose.orientation.w;
      goalApproach.target_pose.pose.orientation.x = 0;
      goalApproach.target_pose.pose.orientation.y = 0;
-      //ROS_INFO("hey1 %f %f",q.getZ(), q.getW()); 
+    
 
      ac.sendGoal(goalApproach);
      ac.waitForResult();
@@ -226,12 +219,12 @@ void newFaceLocation(const geometry_msgs::Pose pose)
      if(ac.getState() == actionlib::SimpleClientGoalState::SUCCEEDED){
 
            ROS_INFO("Face approached");
-          ros::Duration(1).sleep();
+          ros::Duration(3).sleep();
 
         } else {
             ROS_INFO("Could not approach face :(");
         }
-  */
+  
   
 }
 
@@ -246,7 +239,7 @@ int main(int argc, char** argv) {
 
     
    ros::Publisher pub = n.advertise<geometry_msgs::Twist>("/mobile_base/commands/velocity", 1000);
-   ros::Subscriber sub = n.subscribe<geometry_msgs::Pose>("new_faces",1000, newFaceLocation);
+   ros::Subscriber sub = n.subscribe<geometry_msgs::Pose>("new_faces",1000, approachFace);
    
     while(ros::ok()) {
         
