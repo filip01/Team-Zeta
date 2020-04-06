@@ -224,7 +224,7 @@ class face_localizer:
                 marker.color = ColorRGBA(0, 1, 0, 1)
                 self.marker_array.markers.append(marker)
 
-                pub_front_face(pose)
+                self.pub_front_face(pose)
             
             self.markers_pub.publish(self.marker_array)
     
@@ -242,8 +242,13 @@ class face_localizer:
             point_world = self.tf_buf.transform(point_s, "map")
         except Exception as e:
             print(e)
+<<<<<<< HEAD
         print(point_world)
         x, y = point_world.point.x, point_world.y
+=======
+
+        x, y = point_world.point.x, point_world.point.y
+>>>>>>> 3eb4591d6be74112e6c2458c9a95b6211b1ddcbb
 
         dx = x - xF
         dy = y - yF
@@ -257,11 +262,17 @@ class face_localizer:
         pose.position.y = yF + dist*yN
         pose.position.z = 0
 
-        angle = arctan2(y-yF,x-xF)
-        pose.orientation = quaternion_from_euler(0,0,angle)
+        angle = np.arctan2(y-yF,x-xF)
 
+        q = quaternion_from_euler(0,0,angle)
+
+        pose.orientation.x = q[0]
+        pose.orientation.y = q[1]
+        pose.orientation.z = q[2]
+        pose.orientation.w = q[3]
+           
         # post pose
-        self.pose_pub.publish(ppose)
+        self.pose_pub.publish(pose)
 
     def depth_callback(self,data):
 
