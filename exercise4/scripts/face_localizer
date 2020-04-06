@@ -8,6 +8,7 @@ import cv2
 import numpy as np
 import tf2_geometry_msgs
 import tf2_ros
+from std_msgs.msg import String
 #import matplotlib.pyplot as plt
 from sensor_msgs.msg import Image
 from geometry_msgs.msg import PointStamped, Vector3, Pose
@@ -44,6 +45,7 @@ class face_localizer:
 
         # Publiser for the visualization markers
         self.markers_pub = rospy.Publisher('face_markers', MarkerArray, queue_size=1000)
+        self.pose_pub = rospy.Publisher('new_faces', Pose, queue_size=10)
 
         # Object we use for transforming between coordinate frames
         self.tf_buf = tf2_ros.Buffer()
@@ -219,6 +221,14 @@ class face_localizer:
                 marker.color = ColorRGBA(0, 1, 0, 1)
                 self.marker_array.markers.append(marker)
 
+
+                pose.orientation.x = 0.0
+                pose.orientation.y = 0.0
+                pose.orientation.z = 0.0
+                pose.orientation.w = 1.0
+                self.pose_pub.publish(pose)
+                
+            
             self.markers_pub.publish(self.marker_array)
 
     def depth_callback(self,data):
