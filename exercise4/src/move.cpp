@@ -12,6 +12,7 @@
 #include <actionlib/client/simple_action_client.h>
 
 #include <geometry_msgs/Twist.h>
+#include <sound_play/sound_play.h>
 #define PI 3.141592
 
 using namespace std;
@@ -188,38 +189,35 @@ int numOfFaces=1;
 void approachFace(const geometry_msgs::Pose pose)
 {
     //tell the action client that we want to spin a thread by default
-     MoveBaseClient ac("move_base", true);
+    MoveBaseClient ac("move_base", true);
+    sound_play::SoundClient sc;
 
-      //wait for the action server to come up
-     while(!ac.waitForServer(ros::Duration(5.0))){
-       ROS_INFO("Waiting for the move_base action server to come up");
-     }
+    //wait for the action server to come up
+    while(!ac.waitForServer(ros::Duration(5.0))){
+        ROS_INFO("Waiting for the move_base action server to come up");
+    }
     
     ROS_INFO("Got a new face! num: %d",numOfFaces);
     numOfFaces++;
-    
-
-    
 
     move_base_msgs::MoveBaseGoal goalApproach;
 
-     goalApproach.target_pose.header.frame_id = "map";
-     goalApproach.target_pose.header.stamp = ros::Time::now();
-     goalApproach.target_pose.pose.position.x = pose.position.x;
-     goalApproach.target_pose.pose.position.y = pose.position.y;
-     goalApproach.target_pose.pose.orientation.z = pose.orientation.z;
-     goalApproach.target_pose.pose.orientation.w = pose.orientation.w;
-     goalApproach.target_pose.pose.orientation.x = 0;
-     goalApproach.target_pose.pose.orientation.y = 0;
-    
+    goalApproach.target_pose.header.frame_id = "map";
+    goalApproach.target_pose.header.stamp = ros::Time::now();
+    goalApproach.target_pose.pose.position.x = pose.position.x;
+    goalApproach.target_pose.pose.position.y = pose.position.y;
+    goalApproach.target_pose.pose.orientation.z = pose.orientation.z;
+    goalApproach.target_pose.pose.orientation.w = pose.orientation.w;
+    goalApproach.target_pose.pose.orientation.x = 0;
+    goalApproach.target_pose.pose.orientation.y = 0;
 
-     ac.sendGoal(goalApproach);
-     ac.waitForResult();
+    ac.sendGoal(goalApproach);
+    ac.waitForResult();
 
-     if(ac.getState() == actionlib::SimpleClientGoalState::SUCCEEDED){
-
-           ROS_INFO("Face approached");
-          ros::Duration(3).sleep();
+    if(ac.getState() == actionlib::SimpleClientGoalState::SUCCEEDED){
+        ROS_INFO("Face approached");
+        sc.say("Hello");
+        ros::Duration(3).sleep();
 
         } else {
             ROS_INFO("Could not approach face :(");
@@ -232,11 +230,9 @@ int main(int argc, char** argv) {
 
     ros::init(argc, argv, "move");
     ros::NodeHandle n;
-    
 
     map_sub = n.subscribe("map", 10, &mapCallback);
     move_base_msgs::MoveBaseGoal goal;
-
     
    ros::Publisher pub = n.advertise<geometry_msgs::Twist>("/mobile_base/commands/velocity", 1000);
    ros::Subscriber sub = n.subscribe<geometry_msgs::Pose>("new_faces",1000, approachFace);
