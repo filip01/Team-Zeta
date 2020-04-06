@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 from __future__ import print_function
+from tf.transformations import quaternion_from_euler
 
 import sys
 import rospy
@@ -261,12 +262,11 @@ class face_localizer:
         pose.position.x = xF + dist*xN
         pose.position.y = yF + dist*yN
         pose.position.z = 0
-        pose.orientation.x = 0
-        pose.orientation.y = 0
 
-        #? angle = arctan2(y-yF,x-xF)
+        angle = arctan2(y-yF,x-xF)
+        pose.orientation = quaternion_from_euler(0,0,angle)
 
-        #TODO: get orientation
+        # post pose
 
     def depth_callback(self,data):
 
