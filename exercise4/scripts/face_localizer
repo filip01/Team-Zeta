@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 from __future__ import print_function
+from tf.transformations import quaternion_from_euler
 
 import sys
 import rospy
@@ -223,15 +224,9 @@ class face_localizer:
                 marker.color = ColorRGBA(0, 1, 0, 1)
                 self.marker_array.markers.append(marker)
 
-
-                # pub_front_face
-                pose.orientation.x = 0.0
-                pose.orientation.y = 0.0
-                pose.orientation.z = 0.0
-                pose.orientation.w = 1.0
-                self.pose_pub.publish(pose)
-                self.markers_pub.publish(self.marker_array)
-                pub_front_face(self, self.marker_array)
+                pub_front_face(pose)
+            
+            self.markers_pub.publish(self.marker_array)
     
     def pub_front_face(self, face_pose):
         xF = face_pose.position.x
@@ -261,12 +256,12 @@ class face_localizer:
         pose.position.x = xF + dist*xN
         pose.position.y = yF + dist*yN
         pose.position.z = 0
-        pose.orientation.x = 0
-        pose.orientation.y = 0
 
-        #? angle = arctan2(y-yF,x-xF)
+        angle = arctan2(y-yF,x-xF)
+        pose.orientation = quaternion_from_euler(0,0,angle)
 
-        #TODO: get orientation
+        # post pose
+        self.pose_pub.publish(ppose)
 
     def depth_callback(self,data):
 
