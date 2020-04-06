@@ -9,6 +9,7 @@ import cv2
 import numpy as np
 import tf2_geometry_msgs
 import tf2_ros
+import math
 from std_msgs.msg import String
 #import matplotlib.pyplot as plt
 from sensor_msgs.msg import Image
@@ -247,18 +248,18 @@ class face_localizer:
 
         dx = x - xF
         dy = y - yF
-        xN = dx / float(dx + dy) # normalize
-        yN = dy / float(dx + dy)
+        xN = dx / math.sqrt(float(dx*dx + dy *dy))  # normalize
+        yN = dy / math.sqrt(float(dx*dx + dy *dy))
 
-        dist = 0.4
+        dist = 0.5
 
         pose = Pose()
         pose.position.x = xF + dist*xN
         pose.position.y = yF + dist*yN
         pose.position.z = 0
 
-        angle = np.arctan2(y-yF,x-xF)
-
+        angle = np.arctan2((yF-y),(xF-x))
+        
         q = quaternion_from_euler(0,0,angle)
 
         pose.orientation.x = q[0]

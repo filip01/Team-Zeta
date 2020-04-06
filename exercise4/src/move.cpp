@@ -197,7 +197,9 @@ void approachFace(const geometry_msgs::Pose pose)
     
     ROS_INFO("Got a new face! num: %d",numOfFaces);
     numOfFaces++;
+    
 
+    
 
     move_base_msgs::MoveBaseGoal goalApproach;
 
