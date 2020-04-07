@@ -23,6 +23,7 @@ float map_resolution = 0;
 geometry_msgs::TransformStamped map_transform;
 ros::Subscriber map_sub;
 typedef actionlib::SimpleActionClient<move_base_msgs::MoveBaseAction> MoveBaseClient;
+ros::Publisher pubs;
 
 
 
@@ -86,7 +87,7 @@ void mapCallback(const nav_msgs::OccupancyGridConstPtr& msg_map) {
 
 int points[6][2] = { 285, 198, 282, 161, 306, 185, 335, 191, 333, 209, 306, 211};
 double goalOrientations[6] = { (double)7/5, (double)6/5, (double)1/4,(double)1/2, (double) 1/4, (double)1/3 };
-int rotationTime[6] = {3, 5, 6, 3, 4, 6};
+int rotationTime[6] = {3, 5, 7, 3, 4, 6};
 double rotationSpeed[6] = {-0.7, -0.7, 0.7, -0.7, -0.7, 0.7};
 
 int current=0;
@@ -190,7 +191,8 @@ void approachFace(const geometry_msgs::Pose pose)
 {
     //tell the action client that we want to spin a thread by default
     MoveBaseClient ac("move_base", true);
-    sound_play::SoundClient sc;
+
+    
 
     //wait for the action server to come up
     while(!ac.waitForServer(ros::Duration(5.0))){
@@ -215,16 +217,29 @@ void approachFace(const geometry_msgs::Pose pose)
     ac.waitForResult();
 
     if(ac.getState() == actionlib::SimpleClientGoalState::SUCCEEDED){
-        ROS_INFO("Face approached");
-        sc.say("Hello");
-        ros::Duration(3).sleep();
 
+      
+
+        ROS_INFO("Face approached");
+
+        sound_play::SoundRequest s;
+        s.sound=-3;
+        s.command=1;
+        s.volume=1;
+        s.arg="Hello";
+        s.arg2="voice_kal_diphone";
+        pubs.publish(s);
+        ros::Duration(1).sleep();
+
+        
+    
         } else {
             ROS_INFO("Could not approach face :(");
         }
   
   
 }
+
 
 int main(int argc, char** argv) {
 
@@ -236,7 +251,9 @@ int main(int argc, char** argv) {
     
    ros::Publisher pub = n.advertise<geometry_msgs::Twist>("/mobile_base/commands/velocity", 1000);
    ros::Subscriber sub = n.subscribe<geometry_msgs::Pose>("new_faces",1000, approachFace);
-   
+   pubs =  n.advertise<sound_play::SoundRequest>("/robotsound", 1000);
+
+
     while(ros::ok()) {
         
         if(goals(goal, pub)){
