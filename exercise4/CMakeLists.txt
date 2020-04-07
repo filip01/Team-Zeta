@@ -10,6 +10,7 @@ find_package(catkin REQUIRED COMPONENTS
 	nav_msgs
 	std_msgs
 	geometry_msgs
+	sound_play
 )
 
 find_package( OpenCV REQUIRED )

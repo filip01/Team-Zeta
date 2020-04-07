@@ -18,6 +18,7 @@
   <run_depend>visualization_msgs</run_depend>
   <run_depend>sensor_msgs</run_depend>
   <run_depend>geometry_msgs</run_depend>
+  <run_depend>sound_play</run_depend>
 
   <buildtool_depend>catkin</buildtool_depend>
 
