@@ -34,7 +34,7 @@ class face_localizer:
         self.min_neighbors = 5
         self.haar_flags = 0
 
-        # A help variable for holding the dimensions of the image
+        # A help variable for holding the dimensions of the image       
         self.dims = (0, 0, 0)
 
         # Marker array object used for showing markers in Rviz
@@ -84,8 +84,7 @@ class face_localizer:
         point_s.point.z = x
         point_s.header.frame_id = "camera_rgb_optical_frame"
         point_s.header.stamp = stamp
-        print(self.dims[1])
-        print(self.dims[0])
+       
         # Get the point in the "map" coordinate system
         try:
             point_world = self.tf_buf.transform(point_s, "map")
@@ -95,20 +94,27 @@ class face_localizer:
 
             for i in range(len(detected_faces)):
                  if detected_faces[i][0] + margin > point_world.point.x and detected_faces[i][0] - margin < point_world.point.x and detected_faces[i][1] + margin > point_world.point.y and detected_faces[i][1] - margin < point_world.point.y and detected_faces[i][2] + margin > point_world.point.z and detected_faces[i][2] - margin < point_world.point.z:
-                    print("face already detected!")
+                    # print("face already detected!")
                     add = False
                     break
 
             # Create a Pose object with the same position
             if add:
                 pose = Pose()
-                pose.position.x = point_world.point.x
-                pose.position.y = point_world.point.y
-                pose.position.z = point_world.point.z
-                if last_detected_face[0] + margin1 > point_world.point.x and last_detected_face[0] - margin1 < point_world.point.x and last_detected_face[1] + margin1 > point_world.point.y and last_detected_face[1] - margin1 < point_world.point.y and last_detected_face[2] + margin1 > point_world.point.z and last_detected_face[2] - margin1 < point_world.point.z:
-                    detected_faces.append([point_world.point.x, point_world.point.y, point_world.point.z])
+        
+                if self.faceMargin(last_detected_face,margin1,point_world) and self.faceMargin(last_detected_face2,margin1,point_world):
+                   
+                   pose.position.x = (point_world.point.x + last_detected_face[0] + last_detected_face2[0])/3
+                   pose.position.y = (point_world.point.y + last_detected_face[1] + last_detected_face2[1])/3
+                   pose.position.z = (point_world.point.z + last_detected_face[2] + last_detected_face2[2])/3
+                   print("Face number ", len(detected_faces)+1," detected at: X:",pose.position.x, " Y:", pose.position.y)
+                
+                   detected_faces.append([pose.position.x,pose.position.y, pose.position.z])
                 else:
                     pose = None
+                last_detected_face2[0] = last_detected_face[0]
+                last_detected_face2[1] = last_detected_face[1]
+                last_detected_face2[2] = last_detected_face[2]   
                 last_detected_face[0] = point_world.point.x
                 last_detected_face[1] = point_world.point.y
                 last_detected_face[2] = point_world.point.z
@@ -120,6 +126,11 @@ class face_localizer:
 
         return pose
     
+    def faceMargin(self,lastFace, margin, point):
+        if lastFace[0] + margin > point.point.x and lastFace[0] - margin < point.point.x and lastFace[1] + margin > point.point.y and lastFace[1] - margin < point.point.y and lastFace[2] + margin> point.point.z and lastFace[2] - margin < point.point.z:
+            return True
+            
+        return False    
 
     def find_faces(self):
 
@@ -200,7 +211,7 @@ class face_localizer:
             # Find the distance to the detected face
             face_distance = float(np.nanmean(depth_image[y1d:y2d,x1d:x2d]))
 
-            print('Distance to face', face_distance)
+            #print('Distance to face', face_distance)
 
             # Get the time that the depth image was recieved
             depth_time = depth_image_message.header.stamp
@@ -296,9 +307,14 @@ def main():
         detected_faces = []
         global last_detected_face
         last_detected_face = [0, 0, 0]
-        face_finder = face_localizer()
 
+        global last_detected_face2
+        last_detected_face2 = [0, 0, 0]
+
+        face_finder = face_localizer()
+           
         rate = rospy.Rate(10)
+        print("face localization started!")
         while not rospy.is_shutdown():
             face_finder.find_faces()
             rate.sleep()
