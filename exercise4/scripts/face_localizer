@@ -13,7 +13,7 @@ import math
 from std_msgs.msg import String
 #import matplotlib.pyplot as plt
 from sensor_msgs.msg import Image
-from geometry_msgs.msg import PointStamped, Vector3, Pose
+from geometry_msgs.msg import PointStamped, Vector3, Pose, Twist
 from cv_bridge import CvBridge, CvBridgeError
 from visualization_msgs.msg import Marker, MarkerArray
 from std_msgs.msg import ColorRGBA
@@ -152,8 +152,20 @@ class face_localizer:
             print(e)
             return 0
 
-        # Convert the images into a OpenCV (numpy) format
+        #get current velocity
+        try:
+            velocity = rospy.wait_for_message("/mobile_base/commands/velocity", Twist)
+        except Exception as e:
+            print(e)
+            return 0 
 
+        #if angular velocity is too big do not proceed with detecting faces
+        if abs(velocity.angular.z) > 0.8:
+            print("Cannot triangulate face positions when spinning this fast! [", velocity.angular.z, "]")
+            return 0
+        
+
+        # Convert the images into a OpenCV (numpy) format
         try:
             rgb_image = self.bridge.imgmsg_to_cv2(rgb_image_message, "bgr8")
         except CvBridgeError as e:
