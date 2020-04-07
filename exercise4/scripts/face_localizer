@@ -30,8 +30,8 @@ class face_localizer:
         #self.face_detector = dlib.get_frontal_face_detector()
         self.face_cascade = cv2.CascadeClassifier('/opt/ros/kinetic/share/OpenCV-3.3.1-dev/haarcascades/haarcascade_frontalface_default.xml')
 
-        self.haar_scale = 1.3
-        self.min_neighbors = 5
+        self.haar_scale = 1.2
+        self.min_neighbors = 3
         self.haar_flags = 0
 
         # A help variable for holding the dimensions of the image       
@@ -138,31 +138,27 @@ class face_localizer:
     def find_faces(self):
 
        # print('I got a new image!')
-
         # Get the next rgb and depth images that are posted from the camera
         try:
             rgb_image_message = rospy.wait_for_message("/camera/rgb/image_raw", Image)
         except Exception as e:
             print(e)
             return 0
-
         try:
             depth_image_message = rospy.wait_for_message("/camera/depth/image_raw", Image)
         except Exception as e:
             print(e)
             return 0
-
         #get current velocity
         try:
-            velocity = rospy.wait_for_message("/mobile_base/commands/velocity", Twist)
+            velocity = rospy.wait_for_message("/mobile_base/commands/velocity", Twist, timeout=0.05)
+            if abs(velocity.angular.z) > 0.8 or abs(velocity.linear.x) > 0.3:
+                print("Cannot triangulate face positions when spinning/moving this fast! [", velocity.angular.z,", ", velocity.linear.x, "]")
+                return 0
         except Exception as e:
-            print(e)
-            return 0 
-
+            None
         #if angular velocity is too big do not proceed with detecting faces
-        if abs(velocity.angular.z) > 0.8:
-            print("Cannot triangulate face positions when spinning this fast! [", velocity.angular.z, "]")
-            return 0
+       
         
 
         # Convert the images into a OpenCV (numpy) format
@@ -335,7 +331,7 @@ class face_localizer:
 
 def main():
 
-        global detected_faces
+        global detected_faces   
         detected_faces = []
         global last_detected_face
         last_detected_face = [0, 0, 0]
