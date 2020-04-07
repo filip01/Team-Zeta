@@ -40,6 +40,8 @@ class face_localizer:
         # Marker array object used for showing markers in Rviz
         self.marker_array = MarkerArray()
         self.marker_num = 1
+        self.marker_array_2 = MarkerArray()
+        self.marker_num_2 = 1
 
         # Subscribe to the image and/or depth topic
         # self.image_sub = rospy.Subscriber("/camera/rgb/image_raw", Image, self.image_callback)
@@ -47,6 +49,7 @@ class face_localizer:
 
         # Publiser for the visualization markers
         self.markers_pub = rospy.Publisher('face_markers', MarkerArray, queue_size=1000)
+        self.markers_pub_2 = rospy.Publisher('face_goals', MarkerArray, queue_size=1000)
         self.pose_pub = rospy.Publisher('new_faces', Pose, queue_size=10)
 
         # Object we use for transforming between coordinate frames
@@ -180,6 +183,7 @@ class face_localizer:
 
         # For each detected face, extract the depth from the depth image
         self.markers_pub.publish(self.marker_array)
+        self.markers_pub_2.publish(self.marker_array_2)
         for (x,y,w,h) in faces:
             #print('Faces were detected\nNumber of faces: ',len(face_rectangles))
 
@@ -235,10 +239,25 @@ class face_localizer:
                 marker.scale = Vector3(0.1, 0.1, 0.1)
                 marker.color = ColorRGBA(0, 1, 0, 1)
                 self.marker_array.markers.append(marker)
+                self.markers_pub.publish(self.marker_array)
 
-                self.pub_front_face(pose)
+                pose_2 = self.pub_front_face(pose)
+
+                self.marker_num_2 += 1
+                marker_2 = Marker()
+                marker_2.header.stamp = rospy.Time(0)
+                marker_2.header.frame_id = 'map'
+                marker_2.pose = pose_2
+                marker_2.type = Marker.ARROW
+                marker_2.action = Marker.ADD
+                marker_2.frame_locked = False
+                marker_2.lifetime = rospy.Duration.from_sec(10)
+                marker_2.id = self.marker_num_2
+                marker_2.scale = Vector3(0.2, 0.08, 0.1)
+                marker_2.color = ColorRGBA(0, 0, 1, 1)
+                self.marker_array_2.markers.append(marker_2)
+                self.markers_pub_2.publish(self.marker_array_2)
             
-            self.markers_pub.publish(self.marker_array)
     
     def pub_front_face(self, face_pose):
         xF = face_pose.position.x
@@ -280,6 +299,7 @@ class face_localizer:
            
         # post pose
         self.pose_pub.publish(pose)
+        return pose
 
     def depth_callback(self,data):
 
