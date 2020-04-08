@@ -1,0 +1,4 @@
+<launch>
+    <node name="face_localizer" pkg="exercise4" type="face_localizer" output="screen"/>
+    <node name="move" pkg="exercise4" type="move" output="screen"/>
+</launch>
