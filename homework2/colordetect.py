@@ -1,9 +1,7 @@
 import numpy as np
 import cv2
-import sys
 import glob
 import os
-from os.path import expanduser
 from matplotlib import pyplot as plt
 from sklearn.svm import SVC
 from sklearn.model_selection import train_test_split
@@ -57,10 +55,13 @@ if __name__ == "__main__":
     saturation_hists = []
     value_hists = []
     for img in imagesHSV:
-        h = np.concatenate(calc_hist(img, 0, 180))
-        hue_hists.append(h)
-        saturation_hists.append(calc_hist(img, 1, 256))
-        value_hists.append(calc_hist(img, 2, 256))
+        # TODO: check model perf. for alternative number of bins
+        hh = np.concatenate(calc_hist(img, 0, 180))
+        hue_hists.append(hh)
+        sh = np.concatenate(calc_hist(img, 1, 256))
+        saturation_hists.append(sh)
+        vh = np.concatenate(calc_hist(img, 2, 256))
+        value_hists.append(vh)
     
     # training based on hue
     X, y = hue_hists, images_color
@@ -72,8 +73,13 @@ if __name__ == "__main__":
         {'kernel': ['linear'], 'C': [1, 10, 100, 1000]}]
 
     # TODO: research GridSearchCV for additional configuration options
+    # TODO: determine score function
     clf = GridSearchCV(
         SVC(), tuned_parameters
     )
     clf.fit(X_train, y_train)
     print clf.cv_results_
+    
+    # TODO: model perf. on test data
+    # TODO: training/testing based on other data derived from HSV (+RGB and maybe other stuff?)
+    # TODO: try another classifier
