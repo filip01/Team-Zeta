@@ -57,13 +57,13 @@ if __name__ == "__main__":
     saturation_hists = []
     value_hists = []
     for img in imagesHSV:
-        hue_hists.append(calc_hist(img, 0, 180))
+        h = np.concatenate(calc_hist(img, 0, 180))
+        hue_hists.append(h)
         saturation_hists.append(calc_hist(img, 1, 256))
         value_hists.append(calc_hist(img, 2, 256))
     
     # training based on hue
-    # TODO: need more data to train!
-    X, y = hue_hists, np.array(images_color)
+    X, y = hue_hists, images_color
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.4)
 
     tuned_parameters = [
