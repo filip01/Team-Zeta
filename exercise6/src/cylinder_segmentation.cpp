@@ -14,6 +14,7 @@
 #include <pcl/sample_consensus/method_types.h>
 #include <pcl/sample_consensus/model_types.h>
 #include <pcl/segmentation/sac_segmentation.h>
+#include <pcl/filters/voxel_grid.h>
 #include "pcl/point_cloud.h"
 #include "tf2_ros/transform_listener.h"
 #include "tf2_geometry_msgs/tf2_geometry_msgs.h"
@@ -81,16 +82,24 @@ cloud_cb (const pcl::PCLPointCloud2ConstPtr& cloud_blob)
     //std::cerr << "READ VELOCITY!!";
   }	
 
+  pcl::PCLPointCloud2::Ptr cloud_downsampled (new pcl::PCLPointCloud2 ());
+
+  //DOWNSAMPLE THE CLOUD!! 
+  pcl::VoxelGrid<pcl::PCLPointCloud2> sor;
+  sor.setInputCloud (cloud_blob);
+  sor.setLeafSize (0.01f, 0.01f, 0.01f);
+  sor.filter (*cloud_downsampled);
+
   // Read in the cloud data
-  pcl::fromPCLPointCloud2 (*cloud_blob, *cloud);
+  pcl::fromPCLPointCloud2 (*cloud_downsampled, *cloud);
   std::cerr << "PointCloud has: " << cloud->points.size () << " data points." << std::endl;
+
 
   // filter cloud: remove points too high
   pass.setInputCloud (cloud);
   pass.setFilterFieldName ("y");
   pass.setFilterLimits (0, 1.5);
   pass.filter (*cloud_filtered);
-
 
   // filter cloud: remove points too far away
   pass.setInputCloud (cloud_filtered);
@@ -171,8 +180,13 @@ cloud_cb (const pcl::PCLPointCloud2ConstPtr& cloud_blob)
   pcl::PointCloud<PointT>::Ptr cloud_cylinder (new pcl::PointCloud<PointT> ());
   extract.filter (*cloud_cylinder);
 
-  if (cloud_cylinder->points.empty () || cloud_cylinder->points.size () < 15000) 
-    std::cerr << "Can't find the cylindrical component." << std::endl;
+  if (cloud_cylinder->points.empty () || cloud_cylinder->points.size () < 700) 
+    
+    if(!cloud_cylinder->points.empty ()) {
+       std::cerr << "Cylinder detected didnt have enough points! ["<< cloud_cylinder->points.size () << " ]"<< std::endl;    
+    } else {
+      std::cerr << "Can't find the cylindrical component." << std::endl;
+    }
   else
   {
 	  std::cerr << "PointCloud representing the cylindrical component: " << cloud_cylinder->points.size () << " data points." << std::endl;
@@ -255,8 +269,7 @@ cloud_cb (const pcl::PCLPointCloud2ConstPtr& cloud_blob)
   
 }
 
-int
-main (int argc, char** argv)
+int main (int argc, char** argv)
 {
   // Initialize ROS
   ros::init (argc, argv, "cylinder_segment");
