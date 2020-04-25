@@ -1,5 +1,6 @@
 #include <iostream>
 #include <ros/ros.h>
+#include <ros/topic.h>
 #include <math.h>
 #include <visualization_msgs/Marker.h>
 #include <sensor_msgs/PointCloud2.h>
@@ -13,14 +14,19 @@
 #include <pcl/sample_consensus/method_types.h>
 #include <pcl/sample_consensus/model_types.h>
 #include <pcl/segmentation/sac_segmentation.h>
+#include <pcl/filters/voxel_grid.h>
 #include "pcl/point_cloud.h"
 #include "tf2_ros/transform_listener.h"
 #include "tf2_geometry_msgs/tf2_geometry_msgs.h"
 #include "geometry_msgs/PointStamped.h"
+#include <geometry_msgs/Twist.h>
+#include <nav_msgs/Path.h>
+
 
 ros::Publisher pubx;
 ros::Publisher puby;
 ros::Publisher pubm;
+ros::Publisher pubCloud;
 
 tf2_ros::Buffer tf2_buffer;
 
@@ -47,28 +53,67 @@ cloud_cb (const pcl::PCLPointCloud2ConstPtr& cloud_blob)
   // Datasets
   pcl::PointCloud<PointT>::Ptr cloud (new pcl::PointCloud<PointT>);
   pcl::PointCloud<PointT>::Ptr cloud_filtered (new pcl::PointCloud<PointT>);
-  pcl::PointCloud<pcl::Normal>::Ptr cloud_normals (new pcl::PointCloud<pcl::Normal>);
+
+ 
   pcl::PointCloud<PointT>::Ptr cloud_filtered2 (new pcl::PointCloud<PointT>);
-  pcl::PointCloud<pcl::Normal>::Ptr cloud_normals2 (new pcl::PointCloud<pcl::Normal>);
+   pcl::PointCloud<pcl::Normal>::Ptr cloud_normals2 (new pcl::PointCloud<pcl::Normal>);
+
+  pcl::PointCloud<PointT>::Ptr cloud_filtered3 (new pcl::PointCloud<PointT>);
+  pcl::PointCloud<pcl::Normal>::Ptr cloud_normals3 (new pcl::PointCloud<pcl::Normal>);
+
   pcl::ModelCoefficients::Ptr coefficients_plane (new pcl::ModelCoefficients), coefficients_cylinder (new pcl::ModelCoefficients);
   pcl::PointIndices::Ptr inliers_plane (new pcl::PointIndices), inliers_cylinder (new pcl::PointIndices);
+
+ 
+
+  boost::shared_ptr<geometry_msgs::Twist const> vel;
+  ros::Duration timeout = (ros::Duration) 0.5;
   
+  vel = ros::topic::waitForMessage <geometry_msgs::Twist>("/mobile_base/commands/velocity", timeout );
+
+
+  if(vel != NULL) {
+   // vel = *vel1;
+   
+   if( abs(vel->linear.x) > 0.3 || abs(vel->angular.z)  > 0.8 ){
+       std::cerr << "Robot velocity threshold reached! [" <<vel->linear.x << ", " << vel->angular.z << "]" << std::endl;
+       return;
+   }
+    //std::cerr << "READ VELOCITY!!";
+  }	
+
+  pcl::PCLPointCloud2::Ptr cloud_downsampled (new pcl::PCLPointCloud2 ());
+
+  //DOWNSAMPLE THE CLOUD!! 
+  pcl::VoxelGrid<pcl::PCLPointCloud2> sor;
+  sor.setInputCloud (cloud_blob);
+  sor.setLeafSize (0.01f, 0.01f, 0.01f);
+  sor.filter (*cloud_downsampled);
+
   // Read in the cloud data
-  pcl::fromPCLPointCloud2 (*cloud_blob, *cloud);
+  pcl::fromPCLPointCloud2 (*cloud_downsampled, *cloud);
   std::cerr << "PointCloud has: " << cloud->points.size () << " data points." << std::endl;
 
-  // Build a passthrough filter to remove spurious NaNs
+
+  // filter cloud: remove points too high
   pass.setInputCloud (cloud);
-  pass.setFilterFieldName ("z");
+  pass.setFilterFieldName ("y");
   pass.setFilterLimits (0, 1.5);
   pass.filter (*cloud_filtered);
-  std::cerr << "PointCloud after filtering has: " << cloud_filtered->points.size () << " data points." << std::endl;
+
+  // filter cloud: remove points too far away
+  pass.setInputCloud (cloud_filtered);
+  pass.setFilterFieldName ("z");
+  pass.setFilterLimits (0, 1.7);
+  pass.filter (*cloud_filtered2);
+
+  std::cerr << "PointCloud after filtering has: " << cloud_filtered2->points.size () << " data points." << std::endl;
 
   // Estimate point normals
   ne.setSearchMethod (tree);
-  ne.setInputCloud (cloud_filtered);
+  ne.setInputCloud (cloud_filtered2);
   ne.setKSearch (50);
-  ne.compute (*cloud_normals);
+  ne.compute (*cloud_normals2);
 
   // Create the segmentation object for the planar model and set all the parameters
   seg.setOptimizeCoefficients (true);
@@ -76,15 +121,16 @@ cloud_cb (const pcl::PCLPointCloud2ConstPtr& cloud_blob)
   seg.setNormalDistanceWeight (0.1);
   seg.setMethodType (pcl::SAC_RANSAC);
   seg.setMaxIterations (100);
-  seg.setDistanceThreshold (0.03);
-  seg.setInputCloud (cloud_filtered);
-  seg.setInputNormals (cloud_normals);
+  seg.setDistanceThreshold (0.04);
+  seg.setInputCloud (cloud_filtered2);
+  seg.setInputNormals (cloud_normals2);
+
   // Obtain the plane inliers and coefficients
   seg.segment (*inliers_plane, *coefficients_plane);
   std::cerr << "Plane coefficients: " << *coefficients_plane << std::endl;
 
   // Extract the planar inliers from the input cloud
-  extract.setInputCloud (cloud_filtered);
+  extract.setInputCloud (cloud_filtered2);
   extract.setIndices (inliers_plane);
   extract.setNegative (false);
 
@@ -93,17 +139,24 @@ cloud_cb (const pcl::PCLPointCloud2ConstPtr& cloud_blob)
   extract.filter (*cloud_plane);
   std::cerr << "PointCloud representing the planar component: " << cloud_plane->points.size () << " data points." << std::endl;
   
+  //publish the extracted plane
   pcl::PCLPointCloud2 outcloud_plane;
   pcl::toPCLPointCloud2 (*cloud_plane, outcloud_plane);
   pubx.publish (outcloud_plane);
+
 
   // Remove the planar inliers, extract the rest
   extract.setNegative (true);
   extract.filter (*cloud_filtered2);
   extract_normals.setNegative (true);
-  extract_normals.setInputCloud (cloud_normals);
+  extract_normals.setInputCloud (cloud_normals2);
   extract_normals.setIndices (inliers_plane);
   extract_normals.filter (*cloud_normals2);
+
+  //publish filtered cloud  
+  pcl::PCLPointCloud2 outcloud_filtered2;
+  pcl::toPCLPointCloud2 (*cloud_filtered2, outcloud_filtered2);
+  pubCloud.publish (outcloud_filtered2);
 
   // Create the segmentation object for cylinder segmentation and set all the parameters
   seg.setOptimizeCoefficients (true);
@@ -111,8 +164,8 @@ cloud_cb (const pcl::PCLPointCloud2ConstPtr& cloud_blob)
   seg.setMethodType (pcl::SAC_RANSAC);
   seg.setNormalDistanceWeight (0.1);
   seg.setMaxIterations (10000);
-  seg.setDistanceThreshold (0.05);
-  seg.setRadiusLimits (0.06, 0.2);
+  seg.setDistanceThreshold (0.01);
+  seg.setRadiusLimits (0.11, 0.12);
   seg.setInputCloud (cloud_filtered2);
   seg.setInputNormals (cloud_normals2);
 
@@ -126,8 +179,14 @@ cloud_cb (const pcl::PCLPointCloud2ConstPtr& cloud_blob)
   extract.setNegative (false);
   pcl::PointCloud<PointT>::Ptr cloud_cylinder (new pcl::PointCloud<PointT> ());
   extract.filter (*cloud_cylinder);
-  if (cloud_cylinder->points.empty ()) 
-    std::cerr << "Can't find the cylindrical component." << std::endl;
+
+  if (cloud_cylinder->points.empty () || cloud_cylinder->points.size () < 700) 
+    
+    if(!cloud_cylinder->points.empty ()) {
+       std::cerr << "Cylinder detected didnt have enough points! ["<< cloud_cylinder->points.size () << " ]"<< std::endl;    
+    } else {
+      std::cerr << "Can't find the cylindrical component." << std::endl;
+    }
   else
   {
 	  std::cerr << "PointCloud representing the cylindrical component: " << cloud_cylinder->points.size () << " data points." << std::endl;
@@ -185,7 +244,7 @@ cloud_cb (const pcl::PCLPointCloud2ConstPtr& cloud_blob)
           marker.pose.position.y = point_map.point.y;
           marker.pose.position.z = point_map.point.z;
           marker.pose.orientation.x = 0.0;
-	      marker.pose.orientation.y = 0.0;
+	        marker.pose.orientation.y = 0.0;
           marker.pose.orientation.z = 0.0;
           marker.pose.orientation.w = 1.0;
 
@@ -210,12 +269,12 @@ cloud_cb (const pcl::PCLPointCloud2ConstPtr& cloud_blob)
   
 }
 
-int
-main (int argc, char** argv)
+int main (int argc, char** argv)
 {
   // Initialize ROS
   ros::init (argc, argv, "cylinder_segment");
   ros::NodeHandle nh;
+  ROS_INFO("Node started!");
 
   // For transforming between coordinate frames
   tf2_ros::TransformListener tf2_listener(tf2_buffer);
@@ -226,6 +285,7 @@ main (int argc, char** argv)
   // Create a ROS publisher for the output point cloud
   pubx = nh.advertise<pcl::PCLPointCloud2> ("planes", 1);
   puby = nh.advertise<pcl::PCLPointCloud2> ("cylinder", 1);
+  pubCloud = nh.advertise<pcl::PCLPointCloud2> ("processedCloud", 1);
 
   pubm = nh.advertise<visualization_msgs::Marker>("detected_cylinder",1);
 
