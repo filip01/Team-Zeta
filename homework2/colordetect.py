@@ -2,6 +2,7 @@ import numpy as np
 import cv2
 import sys
 import glob
+import os
 from os.path import expanduser
 from matplotlib import pyplot as plt
 from sklearn import svm
@@ -10,7 +11,7 @@ def calc_hist(images, channel, hist_size):
     # construct histogram
     hist_range = (0, hist_size)
 
-    # OpenCV function is faster than (around 40X) than np.histogram()
+    # OpenCV function is faster (around 40X) than np.histogram()
     hist = cv2.calcHist(images, [channel], None, [hist_size], hist_range, accumulate=False)
 
     # normalize histogram
@@ -19,14 +20,25 @@ def calc_hist(images, channel, hist_size):
     return hist
 
 if __name__ == "__main__":
-    home = expanduser("~")
-    images = [cv2.imread(file) for file in glob.glob(home + "/Documents/Colors/*")]
-    # images are in BGR format!
+    # get current path
+    path = os.path.dirname(os.path.realpath(__file__)) + '/pictures/'
+    colors = ['red', 'green', 'blue', 'yellow', 'white', 'black']
+    en_colors = enumerate(colors)
+    images = []
+    images_color = []
+    for c in en_colors:
+        p = path + c[1] + '/*'
+        imgs = ([cv2.imread(file) for file in glob.glob(p)])
+        # images are in BGR format!
+        images.extend(imgs)
+        num_imgs = len(imgs)
+        images_color.extend(num_imgs * [c[0]]) # list of encoded color labels (e.g. 0 for 'red')
 
     # convert to HSV
     imagesHSV = [cv2.cvtColor(img, cv2.COLOR_BGR2HSV) for img in images]
 
     # HSV ranges :: H: 0-179, S: 0-255, V: 0-255
+    # for testing: calc HSV hists for the 1. picture
     hue_hist = calc_hist([imagesHSV[0]], 0, 180)
     saturation_hist = calc_hist([imagesHSV[0]], 1, 256)
     value_hist = calc_hist([imagesHSV[0]], 2, 256)
@@ -36,4 +48,5 @@ if __name__ == "__main__":
     plt.plot(saturation_hist)
     plt.plot(value_hist)
     plt.xlim([0,256])
+    plt.title(colors[images_color[0]])
     plt.show()
