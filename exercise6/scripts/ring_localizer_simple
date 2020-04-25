@@ -38,7 +38,7 @@ class ring_localizer:
         
         # Set Circularity filtering parameters 
         params.filterByCircularity = True 
-        params.minCircularity = 0.7
+        params.minCircularity = 0.6
         
         # Set Convexity filtering parameters 
         params.filterByConvexity = True
@@ -94,7 +94,7 @@ class ring_localizer:
         # Define a stamped message for transformation - in the "camera rgb frame"
         point_s = PointStamped()
         point_s.point.x = -y
-        point_s.point.y = 0
+        point_s.point.y = -0.25
         point_s.point.z = x
         point_s.header.frame_id = "camera_rgb_optical_frame"
         point_s.header.stamp = stamp
@@ -230,26 +230,29 @@ class ring_localizer:
             
             if(r < 50 and y1>0 and y2 <height/2 and x1 >0 and x2 < width):
                 cv2.imshow("ASf", img[y1:y2, x1:x2])
-                ring_distance = float(np.nanmean(depth_image[y-r:y,x-r:x+r]))
-                if(ring_distance > 0.75):
-                    depth_time = depth_image_message.header.stamp
-                    pose = self.get_pose((x1,x2,y1,y2), ring_distance, depth_time)
-                    if pose is not None:
-                        # Create a marker used for visualization
-                        self.marker_num += 1
-                        marker = Marker()
-                        marker.header.stamp = rospy.Time(0)
-                        marker.header.frame_id = 'map'
-                        marker.pose = pose
-                        marker.type = Marker.SPHERE
-                        marker.action = Marker.ADD
-                        marker.frame_locked = False
-                        marker.lifetime = rospy.Duration.from_sec(15)
-                        marker.id = self.marker_num
-                        marker.scale = Vector3(0.1, 0.1, 0.1)
-                        marker.color = ColorRGBA(1, 0, 1, 1)
-                        self.marker_array.markers.append(marker)
-                        self.markers_pub.publish(self.marker_array)
+                ring_distance_top = float(np.nanmean(depth_image[y-r:y,x-r:x+r]))
+                ring_distance_bot = float(np.nanmean(depth_image[y:y+r,x-r:x+r]))
+                if(ring_distance_top - ring_distance_bot < 0.01):
+                    ring_distance = (ring_distance_top + ring_distance_bot)/2
+                    if(ring_distance > 0.75):
+                        depth_time = depth_image_message.header.stamp
+                        pose = self.get_pose((x1,x2,y1,y2), ring_distance, depth_time)
+                        if pose is not None:
+                            # Create a marker used for visualization
+                            self.marker_num += 1
+                            marker = Marker()
+                            marker.header.stamp = rospy.Time(0)
+                            marker.header.frame_id = 'map'
+                            marker.pose = pose
+                            marker.type = Marker.SPHERE
+                            marker.action = Marker.ADD
+                            marker.frame_locked = False
+                            marker.lifetime = rospy.Duration.from_sec(0)
+                            marker.id = self.marker_num
+                            marker.scale = Vector3(0.1, 0.1, 0.1)
+                            marker.color = ColorRGBA(1, 0, 1, 1)
+                            self.marker_array.markers.append(marker)
+                            self.markers_pub.publish(self.marker_array)
 
     def depth_callback(self,data):
 
