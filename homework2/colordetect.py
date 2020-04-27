@@ -6,6 +6,9 @@ from matplotlib import pyplot as plt
 from sklearn.svm import SVC
 from sklearn.model_selection import train_test_split
 from sklearn.model_selection import GridSearchCV
+from sklearn.metrics import confusion_matrix
+from pandas import DataFrame
+import seaborn as sn
 
 def calc_hist(image, channel, hist_size):
     hist_range = (0, hist_size)
@@ -17,6 +20,11 @@ def calc_hist(image, channel, hist_size):
     hist_sum = np.sum(hist)
     hist = np.divide(hist, hist_sum)
     return hist
+
+def draw_conf_matrix(conf_mat):
+    df_cm = DataFrame(conf_mat, index=colors, columns=colors)
+    ax = sn.heatmap(df_cm, cmap="YlGnBu", annot=True, fmt="d")
+    plt.show()
 
 if __name__ == "__main__":
     # get current path
@@ -79,7 +87,11 @@ if __name__ == "__main__":
     )
     clf.fit(X_train, y_train)
     print clf.cv_results_
+    print '---'
     
-    # TODO: model perf. on test data
+    # model perf. on test data
+    y_pred = clf.predict(X_test)
+    conf_mat = confusion_matrix(y_test, y_pred)
+    draw_conf_matrix(conf_mat)
     # TODO: training/testing based on other data derived from HSV (+RGB and maybe other stuff?)
     # TODO: try another classifier
