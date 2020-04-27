@@ -9,6 +9,7 @@ from sklearn.model_selection import GridSearchCV
 from sklearn.metrics import confusion_matrix
 from pandas import DataFrame
 import seaborn as sn
+from joblib import dump
 
 def calc_hist(image, channel, hist_size):
     hist_range = (0, hist_size)
@@ -69,7 +70,7 @@ if __name__ == "__main__":
 
     # training based on hue
     X, y = hue_hists, images_color
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.4)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.4, stratify=y)
 
     tuned_parameters = [
         {'kernel': ['rbf'], 'gamma': [1e-3, 1e-4],
@@ -82,12 +83,15 @@ if __name__ == "__main__":
         SVC(), tuned_parameters
     )
     clf.fit(X_train, y_train)
-    print clf.cv_results_
-    print '---'
+    print 'Best parameters: ', clf.best_params_
     
     # model perf. on test data
     y_pred = clf.predict(X_test)
     conf_mat = confusion_matrix(y_test, y_pred)
     draw_conf_matrix(conf_mat)
+
+    # save best model to file
+    # dump(clf.best_estimator_, 'svc.joblib')
+
     # TODO: training/testing based on other data derived from HSV (+RGB and maybe other stuff?)
     # TODO: try another classifier
