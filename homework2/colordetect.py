@@ -40,6 +40,7 @@ if __name__ == "__main__":
     value_hists = []
 
     rgbhists=[]
+    hsvHists = []
 
     plt.close('all')
 
@@ -67,10 +68,12 @@ if __name__ == "__main__":
             vh = np.concatenate(calc_hist(imgHSV, 2, 256))
             value_hists.append(vh)
                
+            hsvHists.append(np.concatenate([hh,sh,vh])) 
 
             R= np.concatenate(calc_hist(imgRGB, 0, 256)) 
             G= np.concatenate(calc_hist(imgRGB, 1, 256)) 
             B= np.concatenate(calc_hist(imgRGB, 2, 256)) 
+
             rgbhists.append(np.concatenate([R,G,B])) 
             
 
@@ -92,11 +95,14 @@ if __name__ == "__main__":
     X, y = hue_hists, images_color
     
     Xrgb = rgbhists
+    Xhsv = hsvHists
     
 
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.4, stratify=y)
 
     X_trainRGB, X_testRGB, y_trainRGB, y_testRGB = train_test_split(Xrgb, y, test_size=0.4, stratify=y)
+
+    X_trainHSV, X_testHSV, y_trainHSV, y_testHSV = train_test_split(Xhsv, y, test_size=0.4, stratify=y)
 
     tuned_parameters = [
         {'kernel': ['rbf'], 'gamma': [1e-3, 1e-4],
@@ -132,6 +138,13 @@ if __name__ == "__main__":
     y_predRGB = clf.predict(X_testRGB)
     conf_mat = confusion_matrix(y_testRGB, y_predRGB)
     draw_conf_matrix(conf_mat, 'scv: RGB')
+
+    clf.fit(X_trainHSV, y_trainHSV)
+
+    y_predHSV = clf.predict(X_testHSV)
+    conf_mat = confusion_matrix(y_testHSV,y_predHSV)
+    draw_conf_matrix(conf_mat, 'scv: HSV all')
+
 
     # save best model to file
     # dump(clf.best_estimator_, 'svc.joblib')
