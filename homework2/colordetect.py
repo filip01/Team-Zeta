@@ -146,6 +146,18 @@ if __name__ == "__main__":
     draw_conf_matrix(conf_mat, 'scv: HSV all')
 
 
+    knn.fit(X_trainHSV, y_trainHSV)
+
+    y_predKnn = knn.predict(X_testHSV)
+    conf_mat = confusion_matrix(y_testHSV, y_predKnn )
+    draw_conf_matrix(conf_mat, 'knn, hsv all')
+
+    y_predRGB = clf.predict(X_testHSV)
+    conf_mat = confusion_matrix(y_testHSV,y_predHSV)
+    draw_conf_matrix(conf_mat, 'scv: HSV all')
+
+
+
     # save best model to file
     # dump(clf.best_estimator_, 'svc.joblib')
 
