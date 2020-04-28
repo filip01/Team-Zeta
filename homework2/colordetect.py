@@ -41,6 +41,7 @@ if __name__ == "__main__":
 
     rgbhists=[]
     hsvHists = []
+    all_hist = []
 
     plt.close('all')
 
@@ -54,9 +55,7 @@ if __name__ == "__main__":
             # images are in BGR format!
             # convert to HSV
             imgHSV = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
-
             imgRGB= cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-
         
             print num_imgs
             # histogram calculation
@@ -75,9 +74,7 @@ if __name__ == "__main__":
             B= np.concatenate(calc_hist(imgRGB, 2, 256)) 
 
             rgbhists.append(np.concatenate([R,G,B])) 
-            
-
-            # TODO: check model perf. for alternative number of bins
+            all_hist.append(np.concatenate([hh,sh,vh,R,G,B]))
 
             num_imgs += 1
 
@@ -91,13 +88,11 @@ if __name__ == "__main__":
     #plt.title(colors[images_color[0]])
     #plt.show()
 
-    # training based on hue
-    X, y = hue_hists, images_color
+    X, y = all_hist, images_color
     
     Xrgb = rgbhists
     Xhsv = hsvHists
     
-
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.4, stratify=y)
 
     X_trainRGB, X_testRGB, y_trainRGB, y_testRGB = train_test_split(Xrgb, y, test_size=0.4, stratify=y)
@@ -119,15 +114,12 @@ if __name__ == "__main__":
     clf.fit(X_train, y_train)
     print 'Best parameters: ', clf.best_params_
 
-
     knn.fit(X_train, y_train)
-    
     
     # model perf. on test data
     y_pred = clf.predict(X_test)
     conf_mat = confusion_matrix(y_test, y_pred)
     draw_conf_matrix(conf_mat, 'scv')
-
 
     y_predKnn = knn.predict(X_test)
     conf_mat = confusion_matrix(y_test, y_predKnn)
@@ -145,7 +137,6 @@ if __name__ == "__main__":
     conf_mat = confusion_matrix(y_testHSV,y_predHSV)
     draw_conf_matrix(conf_mat, 'scv: HSV all')
 
-
     knn.fit(X_trainHSV, y_trainHSV)
 
     y_predKnn = knn.predict(X_testHSV)
@@ -156,11 +147,5 @@ if __name__ == "__main__":
     conf_mat = confusion_matrix(y_testHSV,y_predHSV)
     draw_conf_matrix(conf_mat, 'scv: HSV all')
 
-
-
     # save best model to file
     # dump(clf.best_estimator_, 'svc.joblib')
-
-    # TODO: training/testing based on other data derived from HSV (+RGB and maybe other stuff?)
-    # TODO: try another classifier
-   
