@@ -11,6 +11,7 @@ from pandas import DataFrame
 import seaborn as sn
 from joblib import dump
 from sklearn.neighbors import KNeighborsClassifier
+from sklearn.metrics import accuracy_score
 
 def calc_hist(image, channel, hist_size):
     hist_range = (0, hist_size)
@@ -119,6 +120,7 @@ if __name__ == "__main__":
     # model perf. on test data
     y_pred = clf.predict(X_test)
     conf_mat = confusion_matrix(y_test, y_pred)
+    print 'Accuracy: ', accuracy_score(y_test, y_pred)
     draw_conf_matrix(conf_mat, 'scv')
 
     y_predKnn = knn.predict(X_test)
