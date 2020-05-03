@@ -9,7 +9,7 @@ from sklearn.model_selection import GridSearchCV
 from sklearn.metrics import confusion_matrix
 from pandas import DataFrame
 import seaborn as sn
-from joblib import dump
+from joblib import dump, load
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.metrics import accuracy_score
 
@@ -89,6 +89,7 @@ if __name__ == "__main__":
     #plt.title(colors[images_color[0]])
     #plt.show()
 
+
     X, y = all_hist, images_color
     
     Xrgb = rgbhists
@@ -99,6 +100,9 @@ if __name__ == "__main__":
     X_trainRGB, X_testRGB, y_trainRGB, y_testRGB = train_test_split(Xrgb, y, test_size=0.4, stratify=y)
 
     X_trainHSV, X_testHSV, y_trainHSV, y_testHSV = train_test_split(Xhsv, y, test_size=0.4, stratify=y)
+
+    test = load('svc.joblib')
+    print('load test : ', test.predict(X_test))
 
     tuned_parameters = [
         {'kernel': ['rbf'], 'gamma': [1e-3, 1e-4],
@@ -119,9 +123,13 @@ if __name__ == "__main__":
     
     # model perf. on test data
     y_pred = clf.predict(X_test)
+    print(y_pred)
     conf_mat = confusion_matrix(y_test, y_pred)
     print 'Accuracy: ', accuracy_score(y_test, y_pred)
     draw_conf_matrix(conf_mat, 'scv')
+
+    # save best model to file
+    # dump(clf.best_estimator_, 'svc.joblib')
 
     y_predKnn = knn.predict(X_test)
     conf_mat = confusion_matrix(y_test, y_predKnn)
@@ -148,6 +156,3 @@ if __name__ == "__main__":
     y_predRGB = clf.predict(X_testHSV)
     conf_mat = confusion_matrix(y_testHSV,y_predHSV)
     draw_conf_matrix(conf_mat, 'scv: HSV all')
-
-    # save best model to file
-    # dump(clf.best_estimator_, 'svc.joblib')
