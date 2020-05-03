@@ -1,0 +1,51 @@
+#!/usr/bin/env python
+import sklearn
+import cv2
+import rospy
+import numpy as np
+
+from __future__ import print_function
+from cv_bridge import CvBridge, CvBridgeError
+from sensor_msgs.msg import Image
+from matplotlib import pyplot as plt
+from joblib import load
+from sklearn.svm import SVC
+
+bridge = CvBridge()
+
+def calc_hist(image, channel, hist_size):
+    hist_range = (0, hist_size)
+
+    # OpenCV function is faster (around 40X) than np.histogram()
+    hist = cv2.calcHist([image], [channel], None, [hist_size], hist_range, accumulate=False)
+
+    # normalize histogram
+    hist_sum = np.sum(hist)
+    hist = np.divide(hist, hist_sum)
+    return hist
+
+def cylinder_img_call(I):
+    # input is 1D image!
+    rgb_I = bridge.imgmsg_to_cv2(I, "bgr8")
+    hsv_I = cv2.cvtColor(rgb_I, cv2.COLOR_BGR2HSV)
+
+    r_hist = calc_hist(rgb_I, 0, 256)
+    g_hist = calc_hist(rgb_I, 1, 256)
+    b_hist = calc_hist(rgb_I, 2, 256)
+
+    h_hist = calc_hist(hsv_I, 0, 180)
+    s_hist = calc_hist(hsv_I, 1, 256)
+    v_hist = calc_hist(hsv_I, 2, 256)
+
+def main():
+    rospy.init_node('color_detection')
+    #rospy.Subscriber("cylinder", pc2.PointCloud2, cylinder_callback)
+    rospy.Subscriber('cylinder_img', Image, cylinder_img_call)
+
+    # import classifier
+    # clf = load('svc.joblib')
+
+    rospy.spin()
+
+if __name__ == '__main__':
+    main()
