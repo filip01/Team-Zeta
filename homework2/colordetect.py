@@ -65,11 +65,11 @@ if __name__ == "__main__":
         
             # histogram calculation
             # HSV ranges :: H: 0-179, S: 0-255, V: 0-255
-            hh = np.concatenate(calc_hist(imgHSV, 0, 180, 40)) 
+            hh = np.concatenate(calc_hist(imgHSV, 0, 180, 30)) 
             hue_hists.append(hh)
-            sh = np.concatenate(calc_hist(imgHSV, 1, 256, 32))
+            sh = np.concatenate(calc_hist(imgHSV, 1, 256, 64))
             saturation_hists.append(sh)
-            vh = np.concatenate(calc_hist(imgHSV, 2, 256, 32))
+            vh = np.concatenate(calc_hist(imgHSV, 2, 256, 64))
             value_hists.append(vh)
                
             hsvHists.append(np.concatenate([hh,sh,vh])) 

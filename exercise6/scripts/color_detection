@@ -41,16 +41,16 @@ def cylinder_call(I):
     g_hist = calc_hist(rgb_I, 1, 256, 64)
     b_hist = calc_hist(rgb_I, 2, 256, 64)
 
-    h_hist = calc_hist(hsv_I, 0, 180, 40)
-    s_hist = calc_hist(hsv_I, 1, 256, 32)
-    v_hist = calc_hist(hsv_I, 2, 256, 32)
+    h_hist = calc_hist(hsv_I, 0, 180, 30)
+    s_hist = calc_hist(hsv_I, 1, 256, 64)
+    v_hist = calc_hist(hsv_I, 2, 256, 64)
 
     # merge hists
     hists = np.concatenate([h_hist, s_hist, v_hist, r_hist, g_hist, b_hist])
 
     # run clf on hists
     color = clf.predict([hists])[0]
-    print('prediction : ', colors[color])
+    print('prediction :', colors[color], 'cylinder')
     # TODO: publish color?
 
 def ring_call():
