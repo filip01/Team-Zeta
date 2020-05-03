@@ -13,6 +13,12 @@ import numpy as np
 
 bridge = CvBridge()
 clf = load('svc.joblib')
+colors = ['red', 'green', 'blue', 'yellow', 'white', 'black']
+
+def plot_hist(h, s):
+    plt.plot(h)
+    plt.xlim([0,s])
+    plt.show()
 
 def calc_hist(image, channel, hist_size):
     hist_range = (0, hist_size)
@@ -25,7 +31,7 @@ def calc_hist(image, channel, hist_size):
     hist = np.divide(hist, hist_sum)
     return np.concatenate(hist)
 
-def cylinder_img_call(I):
+def cylinder_call(I):
     # input is 1D image!
     rgb_I = bridge.imgmsg_to_cv2(I, "bgr8")
     hsv_I = cv2.cvtColor(rgb_I, cv2.COLOR_BGR2HSV)
@@ -42,9 +48,14 @@ def cylinder_img_call(I):
     hists = np.concatenate([h_hist, s_hist, v_hist, r_hist, g_hist, b_hist])
 
     # run clf on hists
-    color = clf.predict([hists])
-    print('prediction : ', color)
+    color = clf.predict([hists])[0]
+    print('prediction : ', colors[color])
     # TODO: fix prediction
+    '''
+    blue is detected as green
+    yellow as green / black
+    red and green seem to be fine
+    '''
     # TODO: publish color?
 
 def ring_call():
@@ -52,7 +63,7 @@ def ring_call():
 
 def main():
     rospy.init_node('color_detection')
-    rospy.Subscriber('cylinder_img', Image, cylinder_img_call)
+    rospy.Subscriber('cylinder_img', Image, cylinder_call)
 
     print(clf)
 
