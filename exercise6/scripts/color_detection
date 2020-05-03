@@ -20,11 +20,11 @@ def plot_hist(h, s):
     plt.xlim([0,s])
     plt.show()
 
-def calc_hist(image, channel, hist_size):
-    hist_range = (0, hist_size)
+def calc_hist(image, channel, hist_r, nbins):
+    hist_range = (0, hist_r)
 
     # OpenCV function is faster (around 40X) than np.histogram()
-    hist = cv2.calcHist([image], [channel], None, [hist_size], hist_range, accumulate=False)
+    hist = cv2.calcHist([image], [channel], None, [nbins], hist_range, accumulate=False)
 
     # normalize histogram
     hist_sum = np.sum(hist)
@@ -36,13 +36,13 @@ def cylinder_call(I):
     rgb_I = bridge.imgmsg_to_cv2(I, "bgr8")
     hsv_I = cv2.cvtColor(rgb_I, cv2.COLOR_BGR2HSV)
 
-    r_hist = calc_hist(rgb_I, 0, 256)
-    g_hist = calc_hist(rgb_I, 1, 256)
-    b_hist = calc_hist(rgb_I, 2, 256)
+    r_hist = calc_hist(rgb_I, 0, 256, 64)
+    g_hist = calc_hist(rgb_I, 1, 256, 64)
+    b_hist = calc_hist(rgb_I, 2, 256, 64)
 
-    h_hist = calc_hist(hsv_I, 0, 180)
-    s_hist = calc_hist(hsv_I, 1, 256)
-    v_hist = calc_hist(hsv_I, 2, 256)
+    h_hist = calc_hist(hsv_I, 0, 180, 40)
+    s_hist = calc_hist(hsv_I, 1, 256, 32)
+    v_hist = calc_hist(hsv_I, 2, 256, 32)
 
     # merge hists
     hists = np.concatenate([h_hist, s_hist, v_hist, r_hist, g_hist, b_hist])
@@ -50,12 +50,6 @@ def cylinder_call(I):
     # run clf on hists
     color = clf.predict([hists])[0]
     print('prediction : ', colors[color])
-    # TODO: fix prediction
-    '''
-    blue is detected as green
-    yellow as green / black
-    red and green seem to be fine
-    '''
     # TODO: publish color?
 
 def ring_call():
