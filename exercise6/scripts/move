@@ -1,0 +1,163 @@
+#!/usr/bin/env python
+from __future__ import print_function
+from tf.transformations import quaternion_from_euler
+
+import sys
+import rospy
+import dlib
+import cv2
+import numpy as np
+import tf2_geometry_msgs
+import tf2_ros
+import math
+import cv2
+from skimage.morphology import skeletonize
+import matplotlib.pyplot as plt
+
+from std_msgs.msg import String
+#import matplotlib.pyplot as plt
+from sensor_msgs.msg import Image
+from geometry_msgs.msg import PointStamped, Vector3, Pose, Twist, TransformStamped
+from cv_bridge import CvBridge, CvBridgeError
+from visualization_msgs.msg import Marker, MarkerArray
+from std_msgs.msg import ColorRGBA
+from nav_msgs.msg import OccupancyGrid
+from skimage.util import invert
+
+def main():
+
+    rospy.init_node("move")
+
+    try:
+        map = rospy.wait_for_message("map", OccupancyGrid)
+    except Exception as e:
+        print(e)
+
+    width=map.info.width
+    heigth=map.info.height
+
+    
+    print(map.info)    
+    cv_map = np.zeros((heigth,width))
+    mask = np.zeros((heigth,width))
+    walls = np.zeros((heigth,width))
+    move_map = np.zeros((heigth,width))
+    rgb = np.zeros((heigth,width,3))
+
+    print(cv_map.shape)
+    
+    map_resolution = map.info.resolution
+
+    map_transform = TransformStamped()
+    map_transform.transform.translation.x = map.info.origin.position.x
+    map_transform.transform.translation.y = map.info.origin.position.y
+    map_transform.transform.translation.z = map.info.origin.position.z
+    map_transform.transform.rotation = map.info.origin.orientation
+  
+  
+    x=0
+    for i in range(heigth-1,-1,-1):
+        for j in range(width):
+            
+            
+            if map.data[x] == -1 : 
+             cv_map[i][j] = 0
+             mask[i][j] = 1
+           
+            if map.data[x] == 0 :
+             cv_map[i][j] = 0
+            
+
+            if map.data[x] == 100 : 
+             cv_map[i][j] = 1
+             walls[i][j] = 1
+            
+            x=x+1
+
+
+
+    kernel = np.ones((8,8),np.uint8)
+    dilatedOriginal = cv2.dilate(cv_map, kernel ,iterations = 1)
+
+    dilated = invert(dilatedOriginal)
+ 
+    skeleton = skeletonize(dilated)
+
+    for i in range(heigth):
+        for j in range(width):
+            
+          if mask[i][j]  == 1:
+            skeleton[i][j] = 0
+                
+    
+
+    ## use move_map for exploration
+    ## 1 == possible goal
+    ## 0 == free space
+    ## 170 == outside the polygon
+    ## 100 == wall
+    
+    for i in range(heigth):
+        for j in range(width):
+            if skeleton[i][j] == 1:
+                rgb[i][j][1] = 150
+                move_map[i][j] = 1
+
+            if mask[i][j] == 1:
+               rgb[i][j][2] = 150
+               move_map[i][j] = 170
+
+            if walls[i][j] == 1:
+               rgb[i][j][0] = 150
+               move_map[i][j] = 100
+
+
+           
+
+            
+
+    plt.close()
+    fig, axes = plt.subplots(1, 4, figsize=(8, 4), sharex=True, sharey=True)
+    ax = axes.ravel()
+
+    ax[0].imshow(dilatedOriginal, cmap=plt.cm.gray)
+    ax[0].set_title('dilated')
+    ax[0].axis('off')
+
+    ax[1].imshow(skeleton, cmap=plt.cm.gray)
+    ax[1].set_title('skeletonized')
+    ax[1].axis('off')
+
+    ax[2].imshow(cv_map, cmap=plt.cm.gray)
+    ax[2].set_title('original')
+    ax[2].axis('off')
+
+    ax[3].imshow(rgb, cmap=plt.cm.gray)
+    ax[3].set_title('rgb representation')
+    ax[3].axis('off')
+
+
+    fig.tight_layout()
+    plt.show()
+
+    x= 270
+    y =280
+
+    pt = PointStamped()
+    pt.point.x = x * map_resolution
+    pt.point.y = (heigth - y) * map_resolution
+    pt.point.z = 0.0
+
+
+    pose_transformed = tf2_geometry_msgs.do_transform_point(pt, map_transform)
+
+    
+    #tf2::doTransform(pt, transformed_pt, map_transform);
+
+
+        
+
+
+import matplotlib.pyplot as plt
+if __name__ == '__main__':
+    main()
