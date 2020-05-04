@@ -1,0 +1,4 @@
+sensor_msgs/Image ring
+sensor_msgs/Image mask
+---
+string color

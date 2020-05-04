@@ -24,6 +24,13 @@ find_package(catkin REQUIRED COMPONENTS
   geometry_msgs
   tf2_ros
   tf2_geometry_msgs
+  message_generation
+)
+
+add_service_files(
+  FILES
+  ring_color.srv
+  cylinder_color.srv
 )
 
 ## Add include directories
@@ -44,6 +51,12 @@ link_directories(
 
 link_libraries(${Boost_LIBRARIES} ${catkin_LIBRARIES} ${PCL_LIBRARIES})
 
+generate_messages(
+  DEPENDENCIES
+  std_msgs
+  sensor_msgs
+)
+
 ## Declare the catkin package
 catkin_package(
   LIBRARIES
@@ -57,6 +70,7 @@ catkin_package(
     roscpp
     sensor_msgs
     std_msgs
+    message_runtime
   DEPENDS
     Boost
     Eigen

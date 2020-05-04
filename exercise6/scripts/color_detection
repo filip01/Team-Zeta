@@ -5,6 +5,7 @@ from sensor_msgs.msg import Image
 from matplotlib import pyplot as plt
 from joblib import load
 from sklearn.svm import SVC
+from exercise6.srv import *
 
 import sklearn
 import cv2
@@ -21,44 +22,75 @@ def plot_hist(h, s):
     plt.xlim([0,s])
     plt.show()
 
-def calc_hist(image, channel, hist_r, nbins):
+def calc_hist(image, channel, hist_r, nbins, mask):
     hist_range = (0, hist_r)
 
     # OpenCV function is faster (around 40X) than np.histogram()
-    hist = cv2.calcHist([image], [channel], None, [nbins], hist_range, accumulate=False)
+    hist = cv2.calcHist([image], [channel], mask, [nbins], hist_range, accumulate=False)
 
     # normalize histogram
     hist_sum = np.sum(hist)
     hist = np.divide(hist, hist_sum)
     return np.concatenate(hist)
 
-def cylinder_call(I):
+def handle_cylinder(req):
     # input is 1D image!
+    I = req.image_1d
     rgb_I = bridge.imgmsg_to_cv2(I, "bgr8")
     hsv_I = cv2.cvtColor(rgb_I, cv2.COLOR_BGR2HSV)
 
-    r_hist = calc_hist(rgb_I, 0, 256, 64)
-    g_hist = calc_hist(rgb_I, 1, 256, 64)
-    b_hist = calc_hist(rgb_I, 2, 256, 64)
+    r_hist = calc_hist(rgb_I, 0, 256, 64, None)
+    g_hist = calc_hist(rgb_I, 1, 256, 64, None)
+    b_hist = calc_hist(rgb_I, 2, 256, 64, None)
 
-    h_hist = calc_hist(hsv_I, 0, 180, 30)
-    s_hist = calc_hist(hsv_I, 1, 256, 64)
-    v_hist = calc_hist(hsv_I, 2, 256, 64)
+    h_hist = calc_hist(hsv_I, 0, 180, 30, None)
+    s_hist = calc_hist(hsv_I, 1, 256, 64, None)
+    v_hist = calc_hist(hsv_I, 2, 256, 64, None)
 
     # merge hists
     hists = np.concatenate([h_hist, s_hist, v_hist, r_hist, g_hist, b_hist])
 
     # run clf on hists
-    color = clf.predict([hists])[0]
-    print('prediction :', colors[color], 'cylinder')
+    color = colors[clf.predict([hists])[0]]
+    print('prediction :', color, 'cylinder')
     # TODO: publish color?
+    return cylinder_colorResponse(color)
 
-def ring_call():
-    pass
+def handle_ring(req):
+    I = req.ring
+    rgb_I = bridge.imgmsg_to_cv2(I)
+    M = req.mask
+    mask = bridge.imgmsg_to_cv2(M)
+    mask = cv2.bitwise_not(mask)
+    # for debugging:
+    '''
+    cv2.imshow('recieved image', I)
+    cv2.imshow('recieved mask', M)
+    while True:
+        if cv2.waitKey(1) & 0xFF == ord('q'): break
+    '''
+    hsv_I = cv2.cvtColor(rgb_I, cv2.COLOR_BGR2HSV)
+
+    r_hist = calc_hist(rgb_I, 0, 256, 64, mask)
+    g_hist = calc_hist(rgb_I, 1, 256, 64, mask)
+    b_hist = calc_hist(rgb_I, 2, 256, 64, mask)
+
+    h_hist = calc_hist(hsv_I, 0, 180, 30, mask)
+    s_hist = calc_hist(hsv_I, 1, 256, 64, mask)
+    v_hist = calc_hist(hsv_I, 2, 256, 64, mask)
+
+    # merge hists
+    hists = np.concatenate([h_hist, s_hist, v_hist, r_hist, g_hist, b_hist])
+
+    # run clf on hists
+    color = colors[clf.predict([hists])[0]]
+    print('prediction :', color, 'ring')
+    return ring_colorResponse(color)
 
 def main():
     rospy.init_node('color_detection')
-    rospy.Subscriber('cylinder_img', Image, cylinder_call)
+    cylinder_service = rospy.Service('cylinder_color', cylinder_color, handle_cylinder)
+    ring_service = rospy.Service('ring_color', ring_color, handle_ring)
 
     print(clf)
 
