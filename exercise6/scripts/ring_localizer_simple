@@ -18,7 +18,7 @@ from geometry_msgs.msg import PointStamped, Vector3, Pose, Twist
 from cv_bridge import CvBridge, CvBridgeError
 from visualization_msgs.msg import Marker, MarkerArray
 from std_msgs.msg import ColorRGBA
-from exercise6.msg import rings_info
+from exercise6.msg import objs_info
 
 class ring_localizer:
     def __init__(self):
@@ -68,11 +68,8 @@ class ring_localizer:
         self.tf_buf = tf2_ros.Buffer()
         self.tf_listener = tf2_ros.TransformListener(self.tf_buf)
 
-        self.ring_poses = []
-        self.ring_colors = []
-
-        self.rings_pub = rospy.Publisher('rings_info', rings_info, queue_size=30)
-        self.ring_info = rings_info()
+        self.rings_pub = rospy.Publisher('rings_info', objs_info, queue_size=30)
+        self.ring_info = objs_info()
         self.ring_info.poses = []
         self.ring_info.colors = []
 
