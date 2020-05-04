@@ -5,6 +5,7 @@ from sensor_msgs.msg import Image
 from matplotlib import pyplot as plt
 from joblib import load
 from sklearn.svm import SVC
+from exercise6.srv import ring_color, ring_colorResponse
 
 import sklearn
 import cv2
@@ -21,11 +22,11 @@ def plot_hist(h, s):
     plt.xlim([0,s])
     plt.show()
 
-def calc_hist(image, channel, hist_r, nbins):
+def calc_hist(image, channel, hist_r, nbins, mask):
     hist_range = (0, hist_r)
 
     # OpenCV function is faster (around 40X) than np.histogram()
-    hist = cv2.calcHist([image], [channel], None, [nbins], hist_range, accumulate=False)
+    hist = cv2.calcHist([image], [channel], mask, [nbins], hist_range, accumulate=False)
 
     # normalize histogram
     hist_sum = np.sum(hist)
@@ -37,13 +38,13 @@ def cylinder_call(I):
     rgb_I = bridge.imgmsg_to_cv2(I, "bgr8")
     hsv_I = cv2.cvtColor(rgb_I, cv2.COLOR_BGR2HSV)
 
-    r_hist = calc_hist(rgb_I, 0, 256, 64)
-    g_hist = calc_hist(rgb_I, 1, 256, 64)
-    b_hist = calc_hist(rgb_I, 2, 256, 64)
+    r_hist = calc_hist(rgb_I, 0, 256, 64, None)
+    g_hist = calc_hist(rgb_I, 1, 256, 64, None)
+    b_hist = calc_hist(rgb_I, 2, 256, 64, None)
 
-    h_hist = calc_hist(hsv_I, 0, 180, 30)
-    s_hist = calc_hist(hsv_I, 1, 256, 64)
-    v_hist = calc_hist(hsv_I, 2, 256, 64)
+    h_hist = calc_hist(hsv_I, 0, 180, 30, None)
+    s_hist = calc_hist(hsv_I, 1, 256, 64, None)
+    v_hist = calc_hist(hsv_I, 2, 256, 64, None)
 
     # merge hists
     hists = np.concatenate([h_hist, s_hist, v_hist, r_hist, g_hist, b_hist])
@@ -53,12 +54,24 @@ def cylinder_call(I):
     print('prediction :', colors[color], 'cylinder')
     # TODO: publish color?
 
-def ring_call():
-    pass
+def handle_ring(req):
+    I = req.ring
+    I = bridge.imgmsg_to_cv2(I)
+    print(I.shape)
+    M = req.mask
+    M = bridge.imgmsg_to_cv2(M)
+    # for debugging:
+    '''
+    cv2.imshow('recieved image', I)
+    cv2.imshow('recieved mask', M)
+    while True:
+        if cv2.waitKey(1) & 0xFF == ord('q'): break
+    '''
 
 def main():
     rospy.init_node('color_detection')
     rospy.Subscriber('cylinder_img', Image, cylinder_call)
+    ring_service = rospy.Service('ring_color', ring_color, handle_ring)
 
     print(clf)
 

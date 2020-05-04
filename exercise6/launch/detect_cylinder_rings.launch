@@ -5,5 +5,6 @@
         <remap from="input" to="/camera/depth/points"/>
     </node>
     <node name="ring_localizer_simple" pkg="exercise6" type="ring_localizer_simple"/>
+    <node name="color_detector" pkg="exercise6" type="color_detection" output="screen"/>
 
 </launch>

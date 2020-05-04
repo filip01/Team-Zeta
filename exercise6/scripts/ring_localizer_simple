@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 from __future__ import print_function
 from tf.transformations import quaternion_from_euler
+from exercise6.srv import ring_color, ring_colorRequest
 
 import sys
 import rospy
@@ -146,6 +147,16 @@ class ring_localizer:
             
         return False    
 
+    def color_client(self, image, mask):
+        I = self.bridge.cv2_to_imgmsg(image)
+        M = self.bridge.cv2_to_imgmsg(mask)
+        rospy.wait_for_service('ring_color')
+        try:
+            get_color = rospy.ServiceProxy('ring_color', ring_color)
+            return get_color(I, M)
+        except rospy.ServiceException, e:
+            print("Service call failed: %s"%e)
+
     def find_rings(self):
 
        # print('I got a new image!')
@@ -191,6 +202,7 @@ class ring_localizer:
         img = cv2.equalizeHist(gray)
         height, width = img.shape
         img = img[0:height/2-50, 0:width]
+        rgb_img = rgb_image[0:height/2-50, 0:width]
 
 
         #thresholdin img
@@ -215,6 +227,8 @@ class ring_localizer:
         cv2.imshow("Filtering Circular Blobs Only", blobs) 
 
         pts = cv2.KeyPoint_convert(kp)
+
+        th3 = cv2.bitwise_not(th3)
         
         for i in range(0, len(kp)): 
             
@@ -229,12 +243,16 @@ class ring_localizer:
 
             
             if(r < 50 and y1>0 and y2 <height/2 and x1 >0 and x2 < width):
-                cv2.imshow("ASf", img[y1:y2, x1:x2])
+                mask = th3[y1:y2, x1:x2]
+                rgb = rgb_image[y1:y2, x1:x2]
+                cv2.imshow("ring image", rgb)
+                cv2.imshow("mask", mask)
                 ring_distance_top = float(np.nanmean(depth_image[y-r:y,x-r:x+r]))
                 ring_distance_bot = float(np.nanmean(depth_image[y:y+r,x-r:x+r]))
                 if(ring_distance_top - ring_distance_bot < 0.01):
                     ring_distance = (ring_distance_top + ring_distance_bot)/2
                     if(ring_distance > 0.75):
+                        color = self.color_client(rgb, mask)
                         depth_time = depth_image_message.header.stamp
                         pose = self.get_pose((x1,x2,y1,y2), ring_distance, depth_time)
                         if pose is not None:
