@@ -28,12 +28,14 @@ from skimage.util import invert
  
 x_current = 270
 y_current = 280 
+x_previous = 270
+y_previous = 280 
 map_resolution = 0
 map_transform = TransformStamped()
 heigth = 0
 width = 0
 
-def move_bot(client, x,y):
+def move_bot(client, x,y, xPrev, yPrev):
 
     global map_transform
     global map_resolution
@@ -45,15 +47,33 @@ def move_bot(client, x,y):
 
     pose_transformed = tf2_geometry_msgs.do_transform_point(pt, map_transform)
 
-    print("Sending to: ", pose_transformed.point.x, " ", pose_transformed.point.y)
 
+    ptPrev = PointStamped()
+    ptPrev.point.x = xPrev * map_resolution
+    ptPrev.point.y = (heigth - yPrev) * map_resolution
+    ptPrev.point.z = 0.0
+
+    pose_transformedPrev = tf2_geometry_msgs.do_transform_point(ptPrev, map_transform)
+
+    angle = np.arctan2((pose_transformed.point.y-pose_transformedPrev.point.y),(pose_transformed.point.x-pose_transformedPrev.point.y))
+
+
+    print("Sending to: ", pose_transformed.point.x, " ", pose_transformed.point.y, " angle: ", angle)
+
+   
+    q = quaternion_from_euler(0,0,angle)
+
+    
     goal = MoveBaseGoal()
     goal.target_pose.header.frame_id = "map"
     goal.target_pose.header.stamp = rospy.Time.now()
     goal.target_pose.pose.position.x = pose_transformed.point.x
     goal.target_pose.pose.position.y = pose_transformed.point.y
     goal.target_pose.pose.position.z = 0.0
-    goal.target_pose.pose.orientation.w = 1.0
+    goal.target_pose.pose.orientation.x = q[0]
+    goal.target_pose.pose.orientation.y = q[1]
+    goal.target_pose.pose.orientation.z = q[2]
+    goal.target_pose.pose.orientation.w = q[3]
 
     client.send_goal(goal)
     wait = client.wait_for_result()
@@ -79,6 +99,7 @@ def next_goal(client,map, r, width, heigth):
     global x_current 
     global y_current
     r2=15
+    r3=r2
 
 
     for i in xrange(-r,r,1):
@@ -117,8 +138,25 @@ def next_goal(client,map, r, width, heigth):
           print("space explored! ", goals_count)
           goalx=-1
         else:
-          print("break, number of goals: ",goals_count)
-          map[goaly][goalx] = 180  
+
+            #check if there is a goal already set nearby
+            for i in xrange(-r3,r3,1):
+              for j in xrange(-r3,r3,1):
+                y = i + goaly
+                x = j + goalx
+
+                if map[y][x] == 1:
+                   map[y][x] = 0
+
+                if map[y][x] == 180 and ( y != goaly or x != goalx ):
+                    goalx = x_current
+                    goaly = y_current
+                           
+            if goalx ==  x_current and goaly == y_current:
+                print("break, point too close to already visited point!")
+            else:
+                print("break, number of goals: ",goals_count)
+                map[goaly][goalx] = 180  
 
     else:
         map[goaly][goalx] = 180
@@ -127,12 +165,16 @@ def next_goal(client,map, r, width, heigth):
             
     
     print(goalx, " ", goaly)
-    
+    x_previous  = x_current
+    y_previous = y_current
+
     x_current=goalx
     y_current=goaly
+     
 
     if goalx != -1:
-      move_bot(client,x_current,y_current)
+    
+     move_bot(client,x_current,y_current,x_previous, y_previous)
 
     return  map
            
@@ -202,7 +244,7 @@ def main():
 
 
 
-    kernel = np.ones((8,8),np.uint8)
+    kernel = np.ones((10,10),np.uint8)
     dilatedOriginal = cv2.dilate(cv_map, kernel ,iterations = 1)
 
     dilated = invert(dilatedOriginal)
@@ -250,7 +292,7 @@ def main():
 
 
     #send turtlebot to initial point for testing purposes
-    move_bot(client,x_current,y_current)
+    move_bot(client,x_current,y_current, x_previous, y_previous)
     
     
 
