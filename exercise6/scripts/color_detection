@@ -56,10 +56,10 @@ def cylinder_call(I):
 
 def handle_ring(req):
     I = req.ring
-    I = bridge.imgmsg_to_cv2(I)
-    print(I.shape)
+    rgb_I = bridge.imgmsg_to_cv2(I)
     M = req.mask
-    M = bridge.imgmsg_to_cv2(M)
+    mask = bridge.imgmsg_to_cv2(M)
+    mask = cv2.bitwise_not(mask)
     # for debugging:
     '''
     cv2.imshow('recieved image', I)
@@ -67,6 +67,23 @@ def handle_ring(req):
     while True:
         if cv2.waitKey(1) & 0xFF == ord('q'): break
     '''
+    hsv_I = cv2.cvtColor(rgb_I, cv2.COLOR_BGR2HSV)
+
+    r_hist = calc_hist(rgb_I, 0, 256, 64, mask)
+    g_hist = calc_hist(rgb_I, 1, 256, 64, mask)
+    b_hist = calc_hist(rgb_I, 2, 256, 64, mask)
+
+    h_hist = calc_hist(hsv_I, 0, 180, 30, mask)
+    s_hist = calc_hist(hsv_I, 1, 256, 64, mask)
+    v_hist = calc_hist(hsv_I, 2, 256, 64, mask)
+
+    # merge hists
+    hists = np.concatenate([h_hist, s_hist, v_hist, r_hist, g_hist, b_hist])
+
+    # run clf on hists
+    color = colors[clf.predict([hists])[0]]
+    print('prediction :', color, 'ring')
+    return ring_colorResponse(color)
 
 def main():
     rospy.init_node('color_detection')

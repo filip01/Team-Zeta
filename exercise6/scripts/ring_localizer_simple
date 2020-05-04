@@ -241,18 +241,17 @@ class ring_localizer:
             x1 = x - r
             x2 = x + r
 
-            
             if(r < 50 and y1>0 and y2 <height/2 and x1 >0 and x2 < width):
                 mask = th3[y1:y2, x1:x2]
                 rgb = rgb_image[y1:y2, x1:x2]
+                color = self.color_client(rgb, mask)
+                print('got color : ', color)
                 cv2.imshow("ring image", rgb)
-                cv2.imshow("mask", mask)
                 ring_distance_top = float(np.nanmean(depth_image[y-r:y,x-r:x+r]))
                 ring_distance_bot = float(np.nanmean(depth_image[y:y+r,x-r:x+r]))
                 if(ring_distance_top - ring_distance_bot < 0.01):
                     ring_distance = (ring_distance_top + ring_distance_bot)/2
                     if(ring_distance > 0.75):
-                        color = self.color_client(rgb, mask)
                         depth_time = depth_image_message.header.stamp
                         pose = self.get_pose((x1,x2,y1,y2), ring_distance, depth_time)
                         if pose is not None:
