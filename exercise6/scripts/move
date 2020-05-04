@@ -11,20 +11,146 @@ import tf2_geometry_msgs
 import tf2_ros
 import math
 import cv2
-from skimage.morphology import skeletonize
+import actionlib
 import matplotlib.pyplot as plt
 
+from skimage.morphology import skeletonize
+from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal
 from std_msgs.msg import String
 #import matplotlib.pyplot as plt
 from sensor_msgs.msg import Image
-from geometry_msgs.msg import PointStamped, Vector3, Pose, Twist, TransformStamped
+from geometry_msgs.msg import PointStamped, Vector3, Pose, Twist, TransformStamped, PoseWithCovarianceStamped
 from cv_bridge import CvBridge, CvBridgeError
 from visualization_msgs.msg import Marker, MarkerArray
 from std_msgs.msg import ColorRGBA
 from nav_msgs.msg import OccupancyGrid
 from skimage.util import invert
+ 
+x_current = 270
+y_current = 280 
+map_resolution = 0
+map_transform = TransformStamped()
+heigth = 0
+width = 0
+
+def move_bot(client, x,y):
+
+    global map_transform
+    global map_resolution
+
+    pt = PointStamped()
+    pt.point.x = x * map_resolution
+    pt.point.y = (heigth - y) * map_resolution
+    pt.point.z = 0.0
+
+    pose_transformed = tf2_geometry_msgs.do_transform_point(pt, map_transform)
+
+    print("Sending to: ", pose_transformed.point.x, " ", pose_transformed.point.y)
+
+    goal = MoveBaseGoal()
+    goal.target_pose.header.frame_id = "map"
+    goal.target_pose.header.stamp = rospy.Time.now()
+    goal.target_pose.pose.position.x = pose_transformed.point.x
+    goal.target_pose.pose.position.y = pose_transformed.point.y
+    goal.target_pose.pose.position.z = 0.0
+    goal.target_pose.pose.orientation.w = 1.0
+
+    client.send_goal(goal)
+    wait = client.wait_for_result()
+
+    if not wait:
+        rospy.logerr("Action server not available!")
+        rospy.signal_shutdown("Action server not available!")
+    else:
+        result = client.get_result()
+        if result:
+            print("goal reached!") 
+        else:
+            print("big oof")  
+  
+
+
+
+def next_goal(client,map, r, width, heigth):
+
+    max_d=0
+    goalx=0
+    goaly=0
+    global x_current 
+    global y_current
+    r2=15
+
+
+    for i in xrange(-r,r,1):
+       for j in xrange(-r,r,1):
+
+           y = i + y_current
+           x = j + x_current
+
+           if map[y][x] == 1:
+
+                if i > -r2 and i < r2 and j > -r2 and j < r2:
+                    map[y][x] = 0
+                if euclidian_distance(x,y ,x_current, y_current) > max_d:
+
+                    max_d = euclidian_distance(x,y ,x_current, y_current)
+                    goalx= x
+                    goaly= y
+
+    if goalx == 0 and goaly == 0:
+
+        goals_count=0
+        min_d = 1000
+
+        for i in xrange(heigth):
+            for j in xrange(width): 
+
+               if map[i][j] == 1:
+                    goals_count= goals_count+1
+
+                    if euclidian_distance(j,i ,x_current, y_current) < min_d:
+                        
+                        min_d = euclidian_distance(j,i ,x_current, y_current)
+                        goalx= j
+                        goaly= i
+        if goals_count < 10:
+          print("space explored! ", goals_count)
+          goalx=-1
+        else:
+          print("break, number of goals: ",goals_count)
+          map[goaly][goalx] = 180  
+
+    else:
+        map[goaly][goalx] = 180
+              
+   
+            
+    
+    print(goalx, " ", goaly)
+    
+    x_current=goalx
+    y_current=goaly
+
+    if goalx != -1:
+      move_bot(client,x_current,y_current)
+
+    return  map
+           
+
+
+
+
+
+def euclidian_distance(x,y ,x2, y2):
+    return math.sqrt(math.pow(abs(x-x2),2) + math.pow(abs(y-y2),2))
+
 
 def main():
+
+    global width
+    global heigth
+    global map_transform
+    global map_resolution
 
     rospy.init_node("move")
 
@@ -56,8 +182,8 @@ def main():
   
   
     x=0
-    for i in range(heigth-1,-1,-1):
-        for j in range(width):
+    for i in xrange(heigth-1,-1,-1):
+        for j in xrange(width):
             
             
             if map.data[x] == -1 : 
@@ -83,13 +209,12 @@ def main():
  
     skeleton = skeletonize(dilated)
 
-    for i in range(heigth):
-        for j in range(width):
+    for i in xrange(heigth):
+        for j in xrange(width):
             
           if mask[i][j]  == 1:
             skeleton[i][j] = 0
                 
-    
 
     ## use move_map for exploration
     ## 1 == possible goal
@@ -112,12 +237,28 @@ def main():
                move_map[i][j] = 100
 
 
-           
+    try:
+        pose = rospy.wait_for_message("/amcl_pose", PoseWithCovarianceStamped)
+        #TO DO: get initial pose
+     
+    except Exception as e:
+        print(e)
 
-            
+    
+    client = actionlib.SimpleActionClient('move_base',MoveBaseAction)
+    client.wait_for_server()
+
+
+    #send turtlebot to initial point for testing purposes
+    move_bot(client,x_current,y_current)
+    
+    
+
+    while x_current != -1:
+     move_map= next_goal(client,move_map,20,width,heigth)
 
     plt.close()
-    fig, axes = plt.subplots(1, 4, figsize=(8, 4), sharex=True, sharey=True)
+    fig, axes = plt.subplots(1, 5, figsize=(8, 4), sharex=True, sharey=True)
     ax = axes.ravel()
 
     ax[0].imshow(dilatedOriginal, cmap=plt.cm.gray)
@@ -136,20 +277,27 @@ def main():
     ax[3].set_title('rgb representation')
     ax[3].axis('off')
 
+    ax[4].imshow(move_map, cmap=plt.cm.gray)
+    ax[4].set_title('moved')
+    ax[4].axis('off')
+
 
     fig.tight_layout()
     plt.show()
 
-    x= 270
-    y =280
+   
 
     pt = PointStamped()
-    pt.point.x = x * map_resolution
-    pt.point.y = (heigth - y) * map_resolution
+    pt.point.x = x_current * map_resolution
+    pt.point.y = (heigth - y_current) * map_resolution
     pt.point.z = 0.0
+
+    #print(pt)
 
 
     pose_transformed = tf2_geometry_msgs.do_transform_point(pt, map_transform)
+
+   # print(pose_transformed)
 
     
     #tf2::doTransform(pt, transformed_pt, map_transform);
