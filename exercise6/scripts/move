@@ -25,6 +25,8 @@ from visualization_msgs.msg import Marker, MarkerArray
 from std_msgs.msg import ColorRGBA
 from nav_msgs.msg import OccupancyGrid
 from skimage.util import invert
+from exercise6.msg import objs_info
+from sound_play.libsoundplay import SoundClient
  
 x_current = 270
 y_current = 280 
@@ -195,6 +197,7 @@ def main():
     global map_resolution
 
     rospy.init_node("move")
+    soundhandle = SoundClient()
 
     try:
         map = rospy.wait_for_message("map", OccupancyGrid)
@@ -293,11 +296,37 @@ def main():
 
     #send turtlebot to initial point for testing purposes
     move_bot(client,x_current,y_current, x_previous, y_previous)
-    
-    
 
+    # TODO delete comment ''' and test!
+    '''
+    rings_info = objs_info()
+    rings_info.poses, rings_info.colors = [], []
+    '''
+    
     while x_current != -1:
-     move_map= next_goal(client,move_map,20,width,heigth)
+        move_map= next_goal(client,move_map,20,width,heigth)
+
+        # TODO delete comment ''' and test!
+        '''
+        try:
+            rinfo = rospy.wait_for_message("rings_info", objs_info)
+        except Exception as e:
+            print(e)
+        
+        if len(rings_info) < len(rinfo):
+            # detected new ring!
+            rings_info = rinfo
+            ring_pose = rings_info[len(rings_info) - 1].pose
+            ring_color = rings_info[len(rings_info) - 1].color
+
+            # TODO move to (under?) the ring
+
+            # say color
+            soundhandle.stopAll()
+            soundhandle.say(ring_color)
+        
+        #TODO cylinders
+        '''
 
     plt.close()
     fig, axes = plt.subplots(1, 5, figsize=(8, 4), sharex=True, sharey=True)
