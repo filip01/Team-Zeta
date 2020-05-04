@@ -18,7 +18,7 @@ from geometry_msgs.msg import PointStamped, Vector3, Pose, Twist
 from cv_bridge import CvBridge, CvBridgeError
 from visualization_msgs.msg import Marker, MarkerArray
 from std_msgs.msg import ColorRGBA
-
+from exercise6.msg import rings_info
 
 class ring_localizer:
     def __init__(self):
@@ -68,6 +68,13 @@ class ring_localizer:
         self.tf_buf = tf2_ros.Buffer()
         self.tf_listener = tf2_ros.TransformListener(self.tf_buf)
 
+        self.ring_poses = []
+        self.ring_colors = []
+
+        self.rings_pub = rospy.Publisher('rings_info', rings_info, queue_size=30)
+        self.ring_info = rings_info()
+        self.ring_info.poses = []
+        self.ring_info.colors = []
 
     def get_pose(self,coords,dist,stamp):
         # Calculate the position of the detected face
@@ -255,6 +262,9 @@ class ring_localizer:
                         depth_time = depth_image_message.header.stamp
                         pose = self.get_pose((x1,x2,y1,y2), ring_distance, depth_time)
                         if pose is not None:
+                            # append pose + color
+                            self.ring_info.poses.append(pose)
+                            self.ring_info.colors.append(color)
                             # Create a marker used for visualization
                             self.marker_num += 1
                             marker = Marker()
@@ -270,6 +280,8 @@ class ring_localizer:
                             marker.color = ColorRGBA(1, 0, 1, 1)
                             self.marker_array.markers.append(marker)
                             self.markers_pub.publish(self.marker_array)
+        
+        self.rings_pub.publish(self.ring_info)
 
     def depth_callback(self,data):
 

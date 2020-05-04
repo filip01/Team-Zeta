@@ -27,6 +27,11 @@ find_package(catkin REQUIRED COMPONENTS
   message_generation
 )
 
+add_message_files(
+  FILES
+  rings_info.msg
+)
+
 add_service_files(
   FILES
   ring_color.srv
@@ -55,6 +60,7 @@ generate_messages(
   DEPENDENCIES
   std_msgs
   sensor_msgs
+  geometry_msgs
 )
 
 ## Declare the catkin package
