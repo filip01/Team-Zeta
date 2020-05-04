@@ -30,6 +30,7 @@ find_package(catkin REQUIRED COMPONENTS
 add_service_files(
   FILES
   ring_color.srv
+  cylinder_color.srv
 )
 
 ## Add include directories

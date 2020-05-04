@@ -21,12 +21,14 @@
 #include "geometry_msgs/PointStamped.h"
 #include <geometry_msgs/Twist.h>
 #include <nav_msgs/Path.h>
+#include "exercise6/cylinder_color.h"
 
 ros::Publisher pubx;
 ros::Publisher puby;
 ros::Publisher pubm;
 ros::Publisher pubCloud;
 ros::Publisher pub_cylinder_img;
+ros::ServiceClient color_client;
 
 tf2_ros::Buffer tf2_buffer;
 
@@ -263,7 +265,14 @@ void cloud_cb(const pcl::PCLPointCloud2ConstPtr &cloud_blob)
 
     sensor_msgs::Image image_;
     pcl::toROSMsg(*cloud_cylinder, image_); //convert the cloud
-    pub_cylinder_img.publish(image_);
+
+    exercise6::cylinder_color srv;
+    srv.request.image_1d = image_;
+    std::string color;
+    if (color_client.call(srv)) {
+      color = srv.response.color;
+      std::cerr << "Got color :" << color.c_str();
+    }
   }
 }
 
@@ -287,7 +296,7 @@ int main(int argc, char **argv)
 
   pubm = nh.advertise<visualization_msgs::Marker>("detected_cylinder", 1);
 
-  pub_cylinder_img = nh.advertise<sensor_msgs::Image>("cylinder_img", 30);
+  color_client = nh.serviceClient<exercise6::cylinder_color>("cylinder_color");
 
   // Spin
   ros::spin();

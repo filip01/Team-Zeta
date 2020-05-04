@@ -5,7 +5,7 @@ from sensor_msgs.msg import Image
 from matplotlib import pyplot as plt
 from joblib import load
 from sklearn.svm import SVC
-from exercise6.srv import ring_color, ring_colorResponse
+from exercise6.srv import *
 
 import sklearn
 import cv2
@@ -33,8 +33,9 @@ def calc_hist(image, channel, hist_r, nbins, mask):
     hist = np.divide(hist, hist_sum)
     return np.concatenate(hist)
 
-def cylinder_call(I):
+def handle_cylinder(req):
     # input is 1D image!
+    I = req.image_1d
     rgb_I = bridge.imgmsg_to_cv2(I, "bgr8")
     hsv_I = cv2.cvtColor(rgb_I, cv2.COLOR_BGR2HSV)
 
@@ -50,9 +51,10 @@ def cylinder_call(I):
     hists = np.concatenate([h_hist, s_hist, v_hist, r_hist, g_hist, b_hist])
 
     # run clf on hists
-    color = clf.predict([hists])[0]
-    print('prediction :', colors[color], 'cylinder')
+    color = colors[clf.predict([hists])[0]]
+    print('prediction :', color, 'cylinder')
     # TODO: publish color?
+    return cylinder_colorResponse(color)
 
 def handle_ring(req):
     I = req.ring
@@ -87,7 +89,7 @@ def handle_ring(req):
 
 def main():
     rospy.init_node('color_detection')
-    rospy.Subscriber('cylinder_img', Image, cylinder_call)
+    cylinder_service = rospy.Service('cylinder_color', cylinder_color, handle_cylinder)
     ring_service = rospy.Service('ring_color', ring_color, handle_ring)
 
     print(clf)
