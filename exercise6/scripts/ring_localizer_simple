@@ -153,7 +153,7 @@ class ring_localizer:
         rospy.wait_for_service('ring_color')
         try:
             get_color = rospy.ServiceProxy('ring_color', ring_color)
-            return get_color(I, M)
+            return get_color(I, M).color
         except rospy.ServiceException, e:
             print("Service call failed: %s"%e)
 
