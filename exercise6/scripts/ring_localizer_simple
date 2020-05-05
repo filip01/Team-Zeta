@@ -39,7 +39,7 @@ class ring_localizer:
         
         # Set Circularity filtering parameters 
         params.filterByCircularity = True 
-        params.minCircularity = 0.6
+        params.minCircularity = 0.4
         
         # Set Convexity filtering parameters 
         params.filterByConvexity = True
@@ -178,7 +178,7 @@ class ring_localizer:
         #get current velocity
         try:
             velocity = rospy.wait_for_message("/mobile_base/commands/velocity", Twist, timeout=0.05)
-            if abs(velocity.angular.z) > 0.8 or abs(velocity.linear.x) > 0.3:
+            if abs(velocity.angular.z) > 11 or abs(velocity.linear.x) > 11:
                 print("Cannot triangulate ring positions when spinning/moving this fast! [", velocity.angular.z,", ", velocity.linear.x, "]")
                 return 0
         except Exception as e:
@@ -217,8 +217,8 @@ class ring_localizer:
         
         #smallImage = cv2.resize(gray, (int(rgb_image.shape[1] / image_scale), int(rgb_image.shape[0] / image_scale)), interpolation=cv2.INTER_LINEAR)
         #smallImage = cv2.equalizeHist(smallImage)
-        cv2.imshow("A", rgb_image)
-        cv2.imshow("AS", np.hstack([img, th3]))
+        #cv2.imshow("A", rgb_image)
+        #cv2.imshow("AS", np.hstack([img, th3]))
 
         kp = self.detector.detect(th3)
 
@@ -227,8 +227,8 @@ class ring_localizer:
                                 cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS) 
         
         # Show blobs 
-        cv2.imshow("Filtering Circular Blobs Only", blobs) 
-        cv2.waitKey(1)
+        #cv2.imshow("Filtering Circular Blobs Only", blobs) 
+        #cv2.waitKey(1)
         pts = cv2.KeyPoint_convert(kp)
 
         th3 = cv2.bitwise_not(th3)
@@ -247,10 +247,10 @@ class ring_localizer:
             if(r < 50 and y1>0 and y2 <height/2 and x1 >0 and x2 < width):
                 mask = th3[y1:y2, x1:x2]
                 rgb = rgb_image[y1:y2, x1:x2]
-                cv2.imshow("ring image", rgb)
+                #cv2.imshow("ring image", rgb)
                 depth = 0
                 counter = 0
-                cv2.imshow("ASAD", th3[y1:y2, x1:x2])
+                #cv2.imshow("ASAD", th3[y1:y2, x1:x2])
                 for i in range(y1, y2):
                     for j in range(x1, x2):
                         if(i < height/2-50 and  j < width):
@@ -275,7 +275,7 @@ class ring_localizer:
                                 # Create a marker used for visualization
                                 self.marker_num += 1
                                 marker = Marker()
-                                marker.header.stamp = rospy.Time(0)
+                                marker.header.stamp = rospy.Time(10)
                                 marker.header.frame_id = 'map'
                                 marker.pose = pose
                                 marker.type = Marker.SPHERE
@@ -317,8 +317,9 @@ class ring_localizer:
         
         image_viz = np.array(image_1, dtype=np.uint8)
 
-        cv2.imshow("Depth window", image_viz)
-        cv2.waitKey(1)
+        #cv2.imshow("Depth window", image_viz)
+        
+        #cv2.waitKey(1)
 
         #plt.imshow(depth_image)
         #plt.show()
