@@ -211,9 +211,8 @@ class ring_localizer:
 
         #thresholdin img
         ret3,th3 = cv2.threshold(img, 70,255,cv2.THRESH_BINARY_INV)
-
         output = img.copy()
-        cv2.waitKey(1)
+        
         image_scale = rgb_image.shape[1]
         
         #smallImage = cv2.resize(gray, (int(rgb_image.shape[1] / image_scale), int(rgb_image.shape[0] / image_scale)), interpolation=cv2.INTER_LINEAR)
@@ -229,7 +228,7 @@ class ring_localizer:
         
         # Show blobs 
         cv2.imshow("Filtering Circular Blobs Only", blobs) 
-
+        cv2.waitKey(1)
         pts = cv2.KeyPoint_convert(kp)
 
         th3 = cv2.bitwise_not(th3)
@@ -248,35 +247,46 @@ class ring_localizer:
             if(r < 50 and y1>0 and y2 <height/2 and x1 >0 and x2 < width):
                 mask = th3[y1:y2, x1:x2]
                 rgb = rgb_image[y1:y2, x1:x2]
-                color = self.color_client(rgb, mask)
-                print('got color : ', color)
                 cv2.imshow("ring image", rgb)
-                ring_distance_top = float(np.nanmean(depth_image[y-r:y,x-r:x+r]))
-                ring_distance_bot = float(np.nanmean(depth_image[y:y+r,x-r:x+r]))
-                if(ring_distance_top - ring_distance_bot < 0.01):
-                    ring_distance = (ring_distance_top + ring_distance_bot)/2
-                    if(ring_distance > 0.75):
-                        depth_time = depth_image_message.header.stamp
-                        pose = self.get_pose((x1,x2,y1,y2), ring_distance, depth_time)
-                        if pose is not None:
-                            # append pose + color
-                            self.ring_info.poses.append(pose)
-                            self.ring_info.colors.append(color)
-                            # Create a marker used for visualization
-                            self.marker_num += 1
-                            marker = Marker()
-                            marker.header.stamp = rospy.Time(0)
-                            marker.header.frame_id = 'map'
-                            marker.pose = pose
-                            marker.type = Marker.SPHERE
-                            marker.action = Marker.ADD
-                            marker.frame_locked = False
-                            marker.lifetime = rospy.Duration.from_sec(0)
-                            marker.id = self.marker_num
-                            marker.scale = Vector3(0.1, 0.1, 0.1)
-                            marker.color = ColorRGBA(1, 0, 1, 1)
-                            self.marker_array.markers.append(marker)
-                            self.markers_pub.publish(self.marker_array)
+                depth = 0
+                counter = 0
+                cv2.imshow("ASAD", th3[y1:y2, x1:x2])
+                for i in range(y1, y2):
+                    for j in range(x1, x2):
+                        if(i < height/2-50 and  j < width):
+                            if not math.isnan(depth_image[i, j]) and th3[i,j] == 0:
+                                depth += depth_image[i,j]
+                                counter += 1
+                if counter > 0:
+                    depth /= counter
+                    depth_center = float(np.nanmean(depth_image[y-5:y+5,x-5:x+5]))                  
+                    if(depth - depth_center > 1) or math.isnan(depth_center):
+                        ring_distance_top = float(np.nanmean(depth_image[y-r:y,x-r:x+r]))
+                        ring_distance_bot = float(np.nanmean(depth_image[y:y+r,x-r:x+r]))
+                        if(ring_distance_top - ring_distance_bot < 0.01):
+                            depth_time = depth_image_message.header.stamp
+                            pose = self.get_pose((x1,x2,y1,y2), depth, depth_time)
+                            if pose is not None:
+                                # append pose + color
+                                color = self.color_client(rgb, mask)
+                                print('got color : ', color)
+                                self.ring_info.poses.append(pose)
+                                self.ring_info.colors.append(color)
+                                # Create a marker used for visualization
+                                self.marker_num += 1
+                                marker = Marker()
+                                marker.header.stamp = rospy.Time(0)
+                                marker.header.frame_id = 'map'
+                                marker.pose = pose
+                                marker.type = Marker.SPHERE
+                                marker.action = Marker.ADD
+                                marker.frame_locked = False
+                                marker.lifetime = rospy.Duration.from_sec(0)
+                                marker.id = self.marker_num
+                                marker.scale = Vector3(0.1, 0.1, 0.1)
+                                marker.color = ColorRGBA(1, 0.5, 1, 1)
+                                self.marker_array.markers.append(marker)
+                                self.markers_pub.publish(self.marker_array)
         
         self.rings_pub.publish(self.ring_info)
 
