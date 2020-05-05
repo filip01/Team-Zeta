@@ -259,7 +259,7 @@ class ring_localizer:
                                 counter += 1
                 if counter > 0:
                     depth /= counter
-                    depth_center = float(np.nanmean(depth_image[y-5:y+5,x-5:x+5]))                  
+                    depth_center = float(np.nanmean(depth_image[y-1:y+1,x-1:x+1]))                  
                     if(depth - depth_center > 1) or math.isnan(depth_center):
                         ring_distance_top = float(np.nanmean(depth_image[y-r:y,x-r:x+r]))
                         ring_distance_bot = float(np.nanmean(depth_image[y:y+r,x-r:x+r]))
@@ -284,7 +284,20 @@ class ring_localizer:
                                 marker.lifetime = rospy.Duration.from_sec(0)
                                 marker.id = self.marker_num
                                 marker.scale = Vector3(0.1, 0.1, 0.1)
-                                marker.color = ColorRGBA(1, 0.5, 1, 1)
+                                if color == "blue":
+                                    marker.color = ColorRGBA(0, 0, 1, 1)
+                                elif color == "red":
+                                    marker.color = ColorRGBA(1, 0, 0, 1)
+                                elif color == "green":
+                                    marker.color = ColorRGBA(0, 1, 0, 1)
+                                elif color == "black":
+                                    marker.color = ColorRGBA(0, 0, 0, 1)
+                                elif color == "white":
+                                    marker.color = ColorRGBA(1, 1, 1, 1)
+                                elif color == "red":
+                                    marker.color = ColorRGBA(1, 1, 0, 1)
+                                else:
+                                    marker.color = ColorRGBA(1, 0, 1, 1)
                                 self.marker_array.markers.append(marker)
                                 self.markers_pub.publish(self.marker_array)
         
