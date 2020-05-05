@@ -22,17 +22,22 @@
 #include <geometry_msgs/Twist.h>
 #include <nav_msgs/Path.h>
 #include "exercise6/cylinder_color.h"
+#include "exercise6/objs_info.h"
 
 ros::Publisher pubx;
 ros::Publisher puby;
 ros::Publisher pubm;
 ros::Publisher pubCloud;
 ros::Publisher pub_cylinder_img;
+ros::Publisher cylinders_info_pub;
+
 ros::ServiceClient color_client;
 
 tf2_ros::Buffer tf2_buffer;
 
 typedef pcl::PointXYZRGB PointT;
+
+exercise6::objs_info cylinders_info;
 
 void cloud_cb(const pcl::PCLPointCloud2ConstPtr &cloud_blob)
 {
@@ -187,6 +192,23 @@ void cloud_cb(const pcl::PCLPointCloud2ConstPtr &cloud_blob)
     }
   else
   {
+    sensor_msgs::Image image_;
+    pcl::toROSMsg(*cloud_cylinder, image_); //convert the cloud
+
+    exercise6::cylinder_color srv;
+    srv.request.image_1d = image_;
+    std::string color;
+    if (color_client.call(srv)) {
+      color = srv.response.color;
+      std::cerr << "Got color :" << color.c_str();
+    }
+
+    for (auto &c: cylinders_info.colors) {
+      if (color.compare(c) == 0) { 
+        return; // already found cylinder of this color
+      }
+    }
+
     std::cerr << "PointCloud representing the cylindrical component: " << cloud_cylinder->points.size() << " data points." << std::endl;
 
     pcl::compute3DCentroid(*cloud_cylinder, centroid);
@@ -259,20 +281,13 @@ void cloud_cb(const pcl::PCLPointCloud2ConstPtr &cloud_blob)
 
     pubm.publish(marker);
 
+    cylinders_info.poses.push_back(marker.pose);
+    cylinders_info.colors.push_back(color);
+    //cylinders_info_pub.publish(cylinders_info);
+
     pcl::PCLPointCloud2 outcloud_cylinder;
     pcl::toPCLPointCloud2(*cloud_cylinder, outcloud_cylinder);
     puby.publish(outcloud_cylinder);
-
-    sensor_msgs::Image image_;
-    pcl::toROSMsg(*cloud_cylinder, image_); //convert the cloud
-
-    exercise6::cylinder_color srv;
-    srv.request.image_1d = image_;
-    std::string color;
-    if (color_client.call(srv)) {
-      color = srv.response.color;
-      std::cerr << "Got color :" << color.c_str();
-    }
   }
 }
 
@@ -298,6 +313,15 @@ int main(int argc, char **argv)
 
   color_client = nh.serviceClient<exercise6::cylinder_color>("cylinder_color");
 
+  cylinders_info_pub = nh.advertise<exercise6::objs_info>("cylinders_info", 10);
+  cylinders_info.poses =  std::vector<geometry_msgs::Pose>();
+  cylinders_info.colors =  std::vector<std::string>();
+
   // Spin
-  ros::spin();
+  ros::Rate rate(10);
+  while (ros::ok()) {
+    cylinders_info_pub.publish(cylinders_info);
+    ros::spinOnce();
+    rate.sleep();
+  }
 }
