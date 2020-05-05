@@ -15,7 +15,7 @@ import actionlib
 import matplotlib.pyplot as plt
 
 from skimage.morphology import skeletonize
-from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal
+from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal, MoveBaseActionResult
 from std_msgs.msg import String
 #import matplotlib.pyplot as plt
 from sensor_msgs.msg import Image
@@ -76,9 +76,24 @@ def move_bot(client, x,y, xPrev, yPrev):
     goal.target_pose.pose.orientation.y = q[1]
     goal.target_pose.pose.orientation.z = q[2]
     goal.target_pose.pose.orientation.w = q[3]
-
     client.send_goal(goal)
+
+
+    '''
+    try:
+        rinfo = rospy.wait_for_message("move_base/status", GoalStatusArray)
+    except Exception as e:
+        print(e)
+
+    print("wait")
+    state = client.get_state()
+    if state != 1:
+        print("skipping goal, state:",state)
+    '''
+        
+
     wait = client.wait_for_result()
+    print(wait)
 
     if not wait:
         rospy.logerr("Action server not available!")
@@ -90,16 +105,34 @@ def move_bot(client, x,y, xPrev, yPrev):
         else:
             print("big oof")  
 
-def move_bot_rings_cylinders(client, x,y, xPrev, yPrev):
+def move_bot_rings(client, x,y, skeleton):
 
     global map_transform
     global map_resolution
+    global heigth 
+    global width
+
+    min_d=1000
+    xgoal=0
+    ygoal=0
 
 
-    angle = np.arctan2((y-yPrev),(x-xPrev))
+    #find nearest possible goal on the skeleton
+    for i in xrange(heigth):
+        for j in xrange(width):
+            if skeleton[i][j] == 1:
+                if  euclidian_distance(x,y,j,i) < min_d:
+                    min_d = euclidian_distance(x,y,j,i)
+                    xgoal = j
+                    ygoal = i
+
+           
 
 
-    print("Sending under the ring: ", x, " ", y, " angle: ", angle)
+    angle = np.arctan2((y-ygoal),(x-xgoal))
+
+
+    print("Sending to face the ring: ", x, " ", y, " angle: ", angle)
 
    
     q = quaternion_from_euler(0,0,angle)
@@ -108,8 +141,8 @@ def move_bot_rings_cylinders(client, x,y, xPrev, yPrev):
     goal = MoveBaseGoal()
     goal.target_pose.header.frame_id = "map"
     goal.target_pose.header.stamp = rospy.Time.now()
-    goal.target_pose.pose.position.x = x
-    goal.target_pose.pose.position.y = y
+    goal.target_pose.pose.position.x = xgoal
+    goal.target_pose.pose.position.y = ygoal
     goal.target_pose.pose.position.z = 0.0
     goal.target_pose.pose.orientation.x = q[0]
     goal.target_pose.pose.orientation.y = q[1]
@@ -361,7 +394,7 @@ def main():
             # TODO move to (under?) the ring
             print("FOUND NEW RING")
            
-            # move_bot_rings_cylinders(client, ring_pose.position.x,ring_pose.position.y, x_current, y_current)
+            move_bot_rings(client, ring_pose.position.x,ring_pose.position.y, skeleton)
             # say color
             soundhandle.stopAll()
             soundhandle.say(ring_color)
