@@ -283,7 +283,7 @@ void cloud_cb(const pcl::PCLPointCloud2ConstPtr &cloud_blob)
 
     cylinders_info.poses.push_back(marker.pose);
     cylinders_info.colors.push_back(color);
-    cylinders_info_pub.publish(cylinders_info);
+    //cylinders_info_pub.publish(cylinders_info);
 
     pcl::PCLPointCloud2 outcloud_cylinder;
     pcl::toPCLPointCloud2(*cloud_cylinder, outcloud_cylinder);
@@ -313,10 +313,15 @@ int main(int argc, char **argv)
 
   color_client = nh.serviceClient<exercise6::cylinder_color>("cylinder_color");
 
-  cylinders_info_pub = nh.advertise<exercise6::objs_info>("cylinders_info", 1);
+  cylinders_info_pub = nh.advertise<exercise6::objs_info>("cylinders_info", 10);
   cylinders_info.poses =  std::vector<geometry_msgs::Pose>();
   cylinders_info.colors =  std::vector<std::string>();
 
   // Spin
-  ros::spin();
+  ros::Rate rate(10);
+  while (ros::ok()) {
+    cylinders_info_pub.publish(cylinders_info);
+    ros::spinOnce();
+    rate.sleep();
+  }
 }
