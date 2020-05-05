@@ -1,5 +1,0 @@
-<?xml version="1.0"?>
-<launch>
-    <include file="$(find exercise6)/launch/detect_cylinder_rings.launch"/>
-    <node name="move" pkg="exercise6" type="move"/>
-</launch>
