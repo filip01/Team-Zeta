@@ -538,7 +538,7 @@ def main():
             move_bot_cylinders(client, cinfo.poses[len(cinfo.poses) - 1-i].position.x,cinfo.poses[len(cinfo.poses) - 1-i].position.y, cinfo.robot_point_stamped.point.x, cinfo.robot_point_stamped.point.y)
             # say color
             soundhandle.stopAll()
-            soundhandle.say(cinfo.colors[len(rinfo.poses) - 1-i])
+            soundhandle.say(cinfo.colors[len(cinfo.poses) - 1-i])
        
 
     plt.close()
