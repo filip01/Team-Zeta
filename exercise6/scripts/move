@@ -29,10 +29,10 @@ from exercise6.msg import objs_info
 from sound_play.libsoundplay import SoundClient
 
 PI = 3.1415926535897 
-x_current = 270
-y_current = 280 
-x_previous = 270
-y_previous = 320
+x_current = 247
+y_current = 260
+x_previous = 247
+y_previous = 260
 map_resolution = 0
 map_transform = TransformStamped()
 heigth = 0
@@ -40,7 +40,7 @@ width = 0
 tf_buf = None
 tf_listener = None
 
-def move_bot(client, twist_pub, x,y, xPrev, yPrev):
+def move_bot(client, x,y, xPrev, yPrev):
 
     global map_transform
     global map_resolution
@@ -85,7 +85,8 @@ def move_bot(client, twist_pub, x,y, xPrev, yPrev):
     '''
     try:
         rinfo = rospy.wait_for_message("move_base/status", GoalStatusArray)
-    except Exception as e:
+    except Exception as e:ROTATING
+MOVING BACK
         print(e)
 
     print("wait")
@@ -104,15 +105,16 @@ def move_bot(client, twist_pub, x,y, xPrev, yPrev):
     else:
         result = client.get_result()
         if result:
-            print("goal reached!") 
-            rotate(twist_pub)
+            print("goal reached!")     
+            #rotate()
         else:
             print("big oof")  
 
-def rotate(twist_pub):
+def rotate(twist_pub,angle):
+
     vel_msg = Twist()
     angular_speed = 60*2*PI/360
-    relative_angle = 2*PI
+    relative_angle = angle * PI / 180
     vel_msg.linear.x = 0
     vel_msg.linear.y = 0
     vel_msg.linear.z = 0
@@ -128,8 +130,9 @@ def rotate(twist_pub):
     vel_msg.angular.z = 0
     twist_pub.publish(vel_msg)
     
+    
 
-def move_bot_rings(client, x,y, skeleton):
+def move_bot_rings(client, x,y, skeleton, color, soundhandle):
 
     global map_transform
     global map_resolution
@@ -196,6 +199,72 @@ def move_bot_rings(client, x,y, skeleton):
         result = client.get_result()
         if result:
             print("ring reached!") 
+
+            twist_pub = rospy.Publisher('/mobile_base/commands/velocity', Twist, queue_size=10)
+            rate = rospy.Rate(10)
+            distance = euclidian_distance(x,y,xgoal,ygoal)
+            if distance > 0.2:
+                distance = distance-0.2
+            else:
+                distance = 0    
+
+            print("DISTANCE: ", distance)
+            speed= 0.1
+
+            vel_msg = Twist()
+       
+            vel_msg.linear.x = speed
+            vel_msg.linear.y = 0
+            vel_msg.linear.z = 0
+            vel_msg.angular.x = 0
+            vel_msg.angular.y = 0
+            vel_msg.angular.z = 0
+
+            t0 = rospy.Time.now().to_sec()
+            current_distance = 0
+            #Loop to move the turtle in an specified distance
+            while(current_distance < distance):
+                #Publish the velocity
+                twist_pub.publish(vel_msg)
+                #Takes actual time to velocity calculus
+                t1=rospy.Time.now().to_sec()            
+                #Calculates distancePoseStamped
+                current_distance= speed*(t1-t0)
+                rate.sleep()
+
+            #After the loop, stops the robot
+            vel_msg.linear.x = 0
+            #Force the robot to stop
+            twist_pub.publish(vel_msg)
+
+             # say color
+            soundhandle.stopAll()
+            soundhandle.say(color)
+
+            print("ROTATING")
+            rotate(twist_pub,180)
+            print("MOVING BACK")
+
+            t0 = rospy.Time.now().to_sec()
+            current_distance = 0
+            vel_msg.linear.x = speed
+
+            #Loop to move the turtle in an specified distance
+            while(current_distance < distance):
+                #Publish the velocity
+                twist_pub.publish(vel_msg)
+                #Takes actual time to velocity calculus
+                t1=rospy.Time.now().to_sec()            
+                #Calculates distancePoseStamped
+                current_distance= speed*(t1-t0)
+                rate.sleep()
+
+            #After the loop, stops the robot
+            vel_msg.linear.x = 0
+            #Force the robot to stop
+            twist_pub.publish(vel_msg)
+
+            
         else:
             print("big oof")  
   
@@ -246,7 +315,7 @@ def move_bot_cylinders(client, x,y, xBot, yBot):
 
 
 
-def next_goal(client, twist_pub, map, r, width, heigth):
+def next_goal(client, map, r, width, heigth):
 
 
     max_d=0
@@ -330,7 +399,7 @@ def next_goal(client, twist_pub, map, r, width, heigth):
 
     if goalx != -1:
     
-     move_bot(client, twist_pub, x_current,y_current,x_previous, y_previous)
+     move_bot(client, x_current,y_current,x_previous, y_previous)
 
     return  map
            
@@ -468,15 +537,43 @@ def main():
     client = actionlib.SimpleActionClient('move_base',MoveBaseAction)
     client.wait_for_server()
     
-    twist_pub = rospy.Publisher('/mobile_base/commands/velocity', Twist, queue_size=10)
+    
     
 
 
     print("hello")
+
+    plt.close()
+    fig, axes = plt.subplots(1, 5, figsize=(8, 4), sharex=True, sharey=True)
+    ax = axes.ravel()
+
+    ax[0].imshow(dilatedOriginal, cmap=plt.cm.gray)
+    ax[0].set_title('dilated')
+    ax[0].axis('off')
+
+    ax[1].imshow(skeleton, cmap=plt.cm.gray)
+    ax[1].set_title('skeletonized')
+    ax[1].axis('off')
+
+    ax[2].imshow(cv_map, cmap=plt.cm.gray)
+    ax[2].set_title('original')
+    ax[2].axis('off')
+
+    ax[3].imshow(rgb, cmap=plt.cm.gray)
+    ax[3].set_title('rgb representation')
+    ax[3].axis('off')
+
+    ax[4].imshow(move_map, cmap=plt.cm.gray)
+    ax[4].set_title('moved')
+    ax[4].axis('off')
+
+
+    fig.tight_layout()
+    plt.show()
     
     
     #send turtlebot to initial point for testing purposes
-    move_bot(client, twist_pub, x_current,y_current, x_previous, y_previous)
+    move_bot(client, x_current,y_current, x_previous, y_previous)
 
     # TODO delete comment ''' and test!
     
@@ -490,7 +587,7 @@ def main():
     while x_current != -1:
 
 
-        move_map= next_goal(client, twist_pub, move_map,20,width,heigth)
+        move_map= next_goal(client, move_map,20,width,heigth)
     
         # RING APPROACH
         try:
@@ -511,10 +608,8 @@ def main():
             print("FOUND NEW RING")
             print(len(rinfo.poses))
            
-            move_bot_rings(client, rinfo.poses[len(rinfo.poses) - 1-i].position.x,rinfo.poses[len(rinfo.poses) - 1-i].position.y, skeleton)
-            # say color
-            soundhandle.stopAll()
-            soundhandle.say(rinfo.colors[len(rinfo.poses) - 1-i])
+            move_bot_rings(client, rinfo.poses[len(rinfo.poses) - 1-i].position.x,rinfo.poses[len(rinfo.poses) - 1-i].position.y, skeleton,rinfo.colors[len(rinfo.poses) - 1-i],soundhandle )
+           
 
         #CYLINDER APPROACH
         try:
