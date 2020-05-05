@@ -313,11 +313,12 @@ def main():
         except Exception as e:
             print(e)
         
-        if len(rings_info) < len(rinfo):
+        if len(rings_info.pose) < len(rinfo.pose):
             # detected new ring!
             rings_info = rinfo
-            ring_pose = rings_info[len(rings_info) - 1].pose
-            ring_color = rings_info[len(rings_info) - 1].color
+            # get new ring pose and color
+            ring_pose = rings_info.pose[len(rings_info.pose) - 1]
+            ring_color = rings_info.color[len(rings_info.pose) - 1]
 
             # TODO move to (under?) the ring
 
