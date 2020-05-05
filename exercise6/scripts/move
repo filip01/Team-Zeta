@@ -57,7 +57,7 @@ def move_bot(client, x,y, xPrev, yPrev):
 
     pose_transformedPrev = tf2_geometry_msgs.do_transform_point(ptPrev, map_transform)
 
-    angle = np.arctan2((pose_transformed.point.y-pose_transformedPrev.point.y),(pose_transformed.point.x-pose_transformedPrev.point.y))
+    angle = np.arctan2((pose_transformed.point.y-pose_transformedPrev.point.y),(pose_transformed.point.x-pose_transformedPrev.point.x))
 
 
     print("Sending to: ", pose_transformed.point.x, " ", pose_transformed.point.y, " angle: ", angle)
@@ -87,6 +87,45 @@ def move_bot(client, x,y, xPrev, yPrev):
         result = client.get_result()
         if result:
             print("goal reached!") 
+        else:
+            print("big oof")  
+
+def move_bot_rings_cylinders(client, x,y, xPrev, yPrev):
+
+    global map_transform
+    global map_resolution
+
+
+    angle = np.arctan2((y-yPrev),(x-xPrev))
+
+
+    print("Sending under the ring: ", x, " ", y, " angle: ", angle)
+
+   
+    q = quaternion_from_euler(0,0,angle)
+
+    
+    goal = MoveBaseGoal()
+    goal.target_pose.header.frame_id = "map"
+    goal.target_pose.header.stamp = rospy.Time.now()
+    goal.target_pose.pose.position.x = x
+    goal.target_pose.pose.position.y = y
+    goal.target_pose.pose.position.z = 0.0
+    goal.target_pose.pose.orientation.x = q[0]
+    goal.target_pose.pose.orientation.y = q[1]
+    goal.target_pose.pose.orientation.z = q[2]
+    goal.target_pose.pose.orientation.w = q[3]
+
+    client.send_goal(goal)
+    wait = client.wait_for_result()
+
+    if not wait:
+        rospy.logerr("Action server not available!")
+        rospy.signal_shutdown("Action server not available!")
+    else:
+        result = client.get_result()
+        if result:
+            print("ring reached!") 
         else:
             print("big oof")  
   
@@ -136,7 +175,7 @@ def next_goal(client,map, r, width, heigth):
                         min_d = euclidian_distance(j,i ,x_current, y_current)
                         goalx= j
                         goaly= i
-        if goals_count < 10:
+        if goals_count < 5:
           print("space explored! ", goals_count)
           goalx=-1
         else:
@@ -281,7 +320,6 @@ def main():
                rgb[i][j][0] = 150
                move_map[i][j] = 100
 
-
     try:
         pose = rospy.wait_for_message("/amcl_pose", PoseWithCovarianceStamped)
         #TO DO: get initial pose
@@ -289,45 +327,47 @@ def main():
     except Exception as e:
         print(e)
 
-    
     client = actionlib.SimpleActionClient('move_base',MoveBaseAction)
     client.wait_for_server()
-
+    
 
     #send turtlebot to initial point for testing purposes
     move_bot(client,x_current,y_current, x_previous, y_previous)
 
     # TODO delete comment ''' and test!
-    '''
+    
     rings_info = objs_info()
     rings_info.poses, rings_info.colors = [], []
-    '''
+  
     
     while x_current != -1:
         move_map= next_goal(client,move_map,20,width,heigth)
 
         # TODO delete comment ''' and test!
-        '''
+        
         try:
             rinfo = rospy.wait_for_message("rings_info", objs_info)
         except Exception as e:
             print(e)
+        # TODO move to (under?) the ring
         
-        if len(rings_info.pose) < len(rinfo.pose):
+        if len(rings_info.poses) < len(rinfo.poses):
             # detected new ring!
             rings_info = rinfo
             # get new ring pose and color
-            ring_pose = rings_info.pose[len(rings_info.pose) - 1]
-            ring_color = rings_info.color[len(rings_info.pose) - 1]
+            ring_pose = rings_info.poses[len(rings_info.poses) - 1]
+            ring_color = rings_info.colors[len(rings_info.poses) - 1]
 
             # TODO move to (under?) the ring
-
+            print("FOUND NEW RING")
+           
+            # move_bot_rings_cylinders(client, ring_pose.position.x,ring_pose.position.y, x_current, y_current)
             # say color
             soundhandle.stopAll()
             soundhandle.say(ring_color)
         
         #TODO cylinders
-        '''
+        
 
     plt.close()
     fig, axes = plt.subplots(1, 5, figsize=(8, 4), sharex=True, sharey=True)
