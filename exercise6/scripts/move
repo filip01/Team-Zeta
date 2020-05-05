@@ -366,14 +366,27 @@ def main():
                rgb[i][j][0] = 150
                move_map[i][j] = 100
 
+    ps = PointStamped()
+    ps.point.x = 0
+    ps.point.y = 0
+    ps.point.z = 0
+    ps.header.frame_id = "base_link"
+    ps.header.stamp = rospy.Time(0)
 
+    try:
+        robot_ps = self.tf_buf.transform(ps, "map")
+    except Exception as e:
+        print(e)
 
+    # use robot_ps
+
+    '''
     try:
         pose = rospy.wait_for_message("/amcl_pose", PoseWithCovarianceStamped)
         #TO DO: get initial pose
-     
     except Exception as e:
         print(e)
+    '''
    
 
     client = actionlib.SimpleActionClient('move_base',MoveBaseAction)
