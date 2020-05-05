@@ -15,7 +15,7 @@ import actionlib
 import matplotlib.pyplot as plt
 
 from skimage.morphology import skeletonize
-from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal
+from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal, MoveBaseActionResult
 from std_msgs.msg import String
 #import matplotlib.pyplot as plt
 from sensor_msgs.msg import Image
@@ -32,7 +32,7 @@ PI = 3.1415926535897
 x_current = 270
 y_current = 280 
 x_previous = 270
-y_previous = 280 
+y_previous = 320
 map_resolution = 0
 map_transform = TransformStamped()
 heigth = 0
@@ -77,9 +77,24 @@ def move_bot(client, twist_pub, x,y, xPrev, yPrev):
     goal.target_pose.pose.orientation.y = q[1]
     goal.target_pose.pose.orientation.z = q[2]
     goal.target_pose.pose.orientation.w = q[3]
-
     client.send_goal(goal)
+
+
+    '''
+    try:
+        rinfo = rospy.wait_for_message("move_base/status", GoalStatusArray)
+    except Exception as e:
+        print(e)
+
+    print("wait")
+    state = client.get_state()
+    if state != 1:
+        print("skipping goal, state:",state)
+    '''
+        
+
     wait = client.wait_for_result()
+    print(wait)
 
     if not wait:
         rospy.logerr("Action server not available!")
@@ -92,6 +107,7 @@ def move_bot(client, twist_pub, x,y, xPrev, yPrev):
         else:
             print("big oof")  
 
+<<<<<<< HEAD
 def rotate(twist_pub):
     vel_msg = Twist()
     angular_speed = 60*2*PI/360
@@ -112,15 +128,49 @@ def rotate(twist_pub):
     twist_pub.publish(vel_msg)
     
 def move_bot_rings_cylinders(client, x,y, xPrev, yPrev):
+=======
+def move_bot_rings(client, x,y, skeleton):
+>>>>>>> 1a3778802180facaf029adb23b878413767e82e2
 
     global map_transform
     global map_resolution
+    global heigth 
+    global width
+
+    min_d=1000
+    xgoal=0
+    ygoal=0
+
+    print("bot at ", x, " ", y)
 
 
-    angle = np.arctan2((y-yPrev),(x-xPrev))
+    #find nearest possible goal on the skeleton
+    for i in xrange(heigth):
+        for j in xrange(width):
+            if skeleton[i][j] == 1:
+
+                pt = PointStamped()
+                pt.point.x = j * map_resolution
+                pt.point.y = (heigth - i) * map_resolution
+                pt.point.z = 0.0
+
+                pose_transformed = tf2_geometry_msgs.do_transform_point(pt, map_transform)
 
 
-    print("Sending under the ring: ", x, " ", y, " angle: ", angle)
+                x2=pose_transformed.point.x
+                y2=pose_transformed.point.y
+
+                if  euclidian_distance(x,y,x2,y2) < min_d:
+                    min_d = euclidian_distance(x,y,x2,y2)
+                    xgoal = x2
+                    ygoal = y2
+
+    #print("xgoal, ygoal : ", xgoal, ygoal)                
+
+    angle = np.arctan2((y-ygoal),(x-xgoal))
+
+
+    print("Sending to face the ring: @[",x, ", ", y,"] ",  xgoal, " ", ygoal, " angle: ", angle)
 
    
     q = quaternion_from_euler(0,0,angle)
@@ -129,8 +179,8 @@ def move_bot_rings_cylinders(client, x,y, xPrev, yPrev):
     goal = MoveBaseGoal()
     goal.target_pose.header.frame_id = "map"
     goal.target_pose.header.stamp = rospy.Time.now()
-    goal.target_pose.pose.position.x = x
-    goal.target_pose.pose.position.y = y
+    goal.target_pose.pose.position.x = xgoal
+    goal.target_pose.pose.position.y = ygoal
     goal.target_pose.pose.position.z = 0.0
     goal.target_pose.pose.orientation.x = q[0]
     goal.target_pose.pose.orientation.y = q[1]
@@ -339,19 +389,41 @@ def main():
                rgb[i][j][0] = 150
                move_map[i][j] = 100
 
+    ps = PointStamped()
+    ps.point.x = 0
+    ps.point.y = 0
+    ps.point.z = 0
+    ps.header.frame_id = "base_link"
+    ps.header.stamp = rospy.Time(0)
+
     try:
-        pose = rospy.wait_for_message("/amcl_pose", PoseWithCovarianceStamped)
-        #TO DO: get initial pose
-     
+        robot_ps = self.tf_buf.transform(ps, "map")
     except Exception as e:
         print(e)
 
+    # use robot_ps
+
+    '''
+    try:
+        pose = rospy.wait_for_message("/amcl_pose", PoseWithCovarianceStamped)
+        #TO DO: get initial pose
+    except Exception as e:
+        print(e)
+    '''
+   
+
     client = actionlib.SimpleActionClient('move_base',MoveBaseAction)
     client.wait_for_server()
+<<<<<<< HEAD
     
     twist_pub = rospy.Publisher('/mobile_base/commands/velocity', Twist, queue_size=10)
     
+=======
+>>>>>>> 1a3778802180facaf029adb23b878413767e82e2
 
+    print("hello")
+    
+    
     #send turtlebot to initial point for testing purposes
     move_bot(client, twist_pub, x_current,y_current, x_previous, y_previous)
 
@@ -371,21 +443,23 @@ def main():
         except Exception as e:
             print(e)
         # TODO move to (under?) the ring
+        i = 0
+        while len(rings_info.poses) < len(rinfo.poses):
         
-        if len(rings_info.poses) < len(rinfo.poses):
-            # detected new ring!
-            rings_info = rinfo
+            
             # get new ring pose and color
-            ring_pose = rings_info.poses[len(rings_info.poses) - 1]
-            ring_color = rings_info.colors[len(rings_info.poses) - 1]
+            rings_info.poses = np.append (rings_info.poses, rinfo.poses[len(rinfo.poses) - 1-i]) 
+            rings_info.colors = np.append (rings_info.colors, rinfo.colors[len(rinfo.poses) - 1-i]) 
+            i=i+1
 
             # TODO move to (under?) the ring
             print("FOUND NEW RING")
+            print(len(rinfo.poses))
            
-            # move_bot_rings_cylinders(client, ring_pose.position.x,ring_pose.position.y, x_current, y_current)
+            move_bot_rings(client, rinfo.poses[len(rinfo.poses) - 1-i].position.x,rinfo.poses[len(rinfo.poses) - 1-i].position.y, skeleton)
             # say color
             soundhandle.stopAll()
-            soundhandle.say(ring_color)
+            soundhandle.say(rinfo.colors[len(rinfo.poses) - 1-i])
         
         #TODO cylinders
         
