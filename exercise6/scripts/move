@@ -36,6 +36,8 @@ map_resolution = 0
 map_transform = TransformStamped()
 heigth = 0
 width = 0
+tf_buf = None
+tf_listener = None
 
 def move_bot(client, x,y, xPrev, yPrev):
 
@@ -283,6 +285,10 @@ def main():
 
     rospy.init_node("move")
     soundhandle = SoundClient()
+    '''
+    tf_buf = tf2_ros.Buffer()
+    tf_listener = tf2_ros.TransformListener(tf_buf)
+    '''
 
     try:
         map = rospy.wait_for_message("map", OccupancyGrid)
@@ -366,6 +372,7 @@ def main():
                rgb[i][j][0] = 150
                move_map[i][j] = 100
 
+    '''
     ps = PointStamped()
     ps.point.x = 0
     ps.point.y = 0
@@ -374,11 +381,13 @@ def main():
     ps.header.stamp = rospy.Time(0)
 
     try:
-        robot_ps = self.tf_buf.transform(ps, "map")
+        robot_ps = tf_buf.transform(ps, 'map')
     except Exception as e:
         print(e)
 
     # use robot_ps
+    print(robot_ps)
+    '''
 
     '''
     try:
