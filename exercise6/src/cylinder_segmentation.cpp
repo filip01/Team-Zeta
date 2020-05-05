@@ -39,6 +39,39 @@ typedef pcl::PointXYZRGB PointT;
 
 exercise6::objs_info cylinders_info;
 
+geometry_msgs::PointStamped get_robot_ps(ros::Time time_rec, ros::Time time_test) {
+    geometry_msgs::PointStamped point_map_robot;
+    geometry_msgs::PointStamped point_base;
+    geometry_msgs::TransformStamped t_base_map;
+
+    point_base.header.frame_id = "base_link";
+    point_base.header.stamp = ros::Time::now();
+
+    point_map_robot.header.frame_id = "map";
+    point_map_robot.header.stamp = ros::Time::now();
+
+    point_base.point.x = 0;
+    point_base.point.y = 0;
+    point_base.point.z = 0;
+
+    try
+    {
+      time_test = ros::Time::now();
+
+      std::cerr << time_test << std::endl;
+      t_base_map = tf2_buffer.lookupTransform("map", "base_link", time_rec);
+    }
+    catch (tf2::TransformException &ex)
+    {
+      ROS_WARN("Transform warning: %s\n", ex.what());
+    }
+
+    tf2::doTransform(point_base, point_map_robot, t_base_map);
+    std::cerr << "point_base: " << point_base.point.x << " " << point_base.point.y << " " << point_base.point.z << std::endl;
+
+    return point_map_robot;
+}
+
 void cloud_cb(const pcl::PCLPointCloud2ConstPtr &cloud_blob)
 {
   // All the objects needed
@@ -244,12 +277,12 @@ void cloud_cb(const pcl::PCLPointCloud2ConstPtr &cloud_blob)
       ROS_WARN("Transform warning: %s\n", ex.what());
     }
 
-    //std::cerr << tss ;
-
     tf2::doTransform(point_camera, point_map, tss);
 
     std::cerr << "point_camera: " << point_camera.point.x << " " << point_camera.point.y << " " << point_camera.point.z << std::endl;
     std::cerr << "point_map: " << point_map.point.x << " " << point_map.point.y << " " << point_map.point.z << std::endl;
+
+    cylinders_info.robot_point_stamped = get_robot_ps(time_rec, time_test);
 
     marker.header.frame_id = "map";
     marker.header.stamp = ros::Time::now();
@@ -283,7 +316,6 @@ void cloud_cb(const pcl::PCLPointCloud2ConstPtr &cloud_blob)
 
     cylinders_info.poses.push_back(marker.pose);
     cylinders_info.colors.push_back(color);
-    //cylinders_info_pub.publish(cylinders_info);
 
     pcl::PCLPointCloud2 outcloud_cylinder;
     pcl::toPCLPointCloud2(*cloud_cylinder, outcloud_cylinder);
@@ -316,6 +348,7 @@ int main(int argc, char **argv)
   cylinders_info_pub = nh.advertise<exercise6::objs_info>("cylinders_info", 10);
   cylinders_info.poses =  std::vector<geometry_msgs::Pose>();
   cylinders_info.colors =  std::vector<std::string>();
+  cylinders_info.robot_point_stamped = geometry_msgs::PointStamped();
 
   // Spin
   ros::Rate rate(10);
