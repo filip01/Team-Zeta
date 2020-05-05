@@ -535,7 +535,7 @@ def main():
             print("FOUND A NEW CYLINDER")
             print(len(cinfo.poses))
            
-            move_bot_cylinders(client, cinfo.poses[len(rinfo.poses) - 1-i].position.x,cinfo.poses[len(rinfo.poses) - 1-i].position.y, cinfo.robot_point_stamped.point.x, cinfo.robot_point_stamped.point.y)
+            move_bot_cylinders(client, cinfo.poses[len(cinfo.poses) - 1-i].position.x,cinfo.poses[len(cinfo.poses) - 1-i].position.y, cinfo.robot_point_stamped.point.x, cinfo.robot_point_stamped.point.y)
             # say color
             soundhandle.stopAll()
             soundhandle.say(cinfo.colors[len(rinfo.poses) - 1-i])
