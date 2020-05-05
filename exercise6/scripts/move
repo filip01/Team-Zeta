@@ -27,7 +27,8 @@ from nav_msgs.msg import OccupancyGrid
 from skimage.util import invert
 from exercise6.msg import objs_info
 from sound_play.libsoundplay import SoundClient
- 
+
+PI = 3.1415926535897 
 x_current = 270
 y_current = 280 
 x_previous = 270
@@ -37,7 +38,7 @@ map_transform = TransformStamped()
 heigth = 0
 width = 0
 
-def move_bot(client, x,y, xPrev, yPrev):
+def move_bot(client, twist_pub, x,y, xPrev, yPrev):
 
     global map_transform
     global map_resolution
@@ -87,9 +88,29 @@ def move_bot(client, x,y, xPrev, yPrev):
         result = client.get_result()
         if result:
             print("goal reached!") 
+            rotate(twist_pub)
         else:
             print("big oof")  
 
+def rotate(twist_pub):
+    vel_msg = Twist()
+    angular_speed = 60*2*PI/360
+    relative_angle = 2*PI
+    vel_msg.linear.x = 0
+    vel_msg.linear.y = 0
+    vel_msg.linear.z = 0
+    vel_msg.angular.x = 0
+    vel_msg.angular.y = 0
+    vel_msg.angular.z = abs(angular_speed)
+    t0 = rospy.Time.now().to_sec()
+    current_angle = 0
+    while(current_angle < relative_angle):
+        twist_pub.publish(vel_msg)
+        t1 = rospy.Time.now().to_sec()
+        current_angle = angular_speed*(t1-t0)
+    vel_msg.angular.z = 0
+    twist_pub.publish(vel_msg)
+    
 def move_bot_rings_cylinders(client, x,y, xPrev, yPrev):
 
     global map_transform
@@ -130,9 +151,7 @@ def move_bot_rings_cylinders(client, x,y, xPrev, yPrev):
             print("big oof")  
   
 
-
-
-def next_goal(client,map, r, width, heigth):
+def next_goal(client, twist_pub, map, r, width, heigth):
 
     max_d=0
     goalx=0
@@ -215,7 +234,7 @@ def next_goal(client,map, r, width, heigth):
 
     if goalx != -1:
     
-     move_bot(client,x_current,y_current,x_previous, y_previous)
+     move_bot(client, twist_pub, x_current,y_current,x_previous, y_previous)
 
     return  map
            
@@ -330,9 +349,11 @@ def main():
     client = actionlib.SimpleActionClient('move_base',MoveBaseAction)
     client.wait_for_server()
     
+    twist_pub = rospy.Publisher('/mobile_base/commands/velocity', Twist, queue_size=10)
+    
 
     #send turtlebot to initial point for testing purposes
-    move_bot(client,x_current,y_current, x_previous, y_previous)
+    move_bot(client, twist_pub, x_current,y_current, x_previous, y_previous)
 
     # TODO delete comment ''' and test!
     
@@ -341,8 +362,8 @@ def main():
   
     
     while x_current != -1:
-        move_map= next_goal(client,move_map,20,width,heigth)
 
+        move_map= next_goal(client, twist_pub, move_map,20,width,heigth)
         # TODO delete comment ''' and test!
         
         try:
