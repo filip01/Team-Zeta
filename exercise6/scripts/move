@@ -175,7 +175,50 @@ def move_bot_rings(client, x,y, skeleton):
         else:
             print("big oof")  
   
+def move_bot_cylinders(client, x,y, xBot, yBot):
 
+    dx = xBot - x
+    dy = yBot - y
+    xN = dx / math.sqrt(float(dx*dx + dy *dy))  # normalize
+    yN = dy / math.sqrt(float(dx*dx + dy *dy))
+
+    dist = 0.5
+
+    pose = Pose()
+    pose.position.x = x + dist*xN
+    pose.position.y = y + dist*yN
+    pose.position.z = 0
+
+    angle = np.arctan2((y-yBot),(x-xBot))
+              
+    print("Sending to face the cylinder: @[",x, ", ", y,"] ",  xBot, " ", yBot, " angle: ", angle)
+
+   
+    q = quaternion_from_euler(0,0,angle)
+    
+    goal = MoveBaseGoal()
+    goal.target_pose.header.frame_id = "map"
+    goal.target_pose.header.stamp = rospy.Time.now()
+    goal.target_pose.pose.position.x = pose.position.x 
+    goal.target_pose.pose.position.y = pose.position.y
+    goal.target_pose.pose.position.z = 0.0
+    goal.target_pose.pose.orientation.x = q[0]
+    goal.target_pose.pose.orientation.y = q[1]
+    goal.target_pose.pose.orientation.z = q[2]
+    goal.target_pose.pose.orientation.w = q[3]
+
+    client.send_goal(goal)
+    wait = client.wait_for_result()
+
+    if not wait:
+        rospy.logerr("Action server not available!")
+        rospy.signal_shutdown("Action server not available!")
+    else:
+        result = client.get_result()
+        if result:
+            print("cylinder reached!") 
+        else:
+            print("big oof")  
 
 
 def next_goal(client,map, r, width, heigth):
@@ -389,13 +432,15 @@ def main():
     
     rings_info = objs_info()
     rings_info.poses, rings_info.colors = [], []
+
+    cylinders_info = objs_info()
+    cylinders_info.poses, cylinders_info.colors = [], []
   
     
     while x_current != -1:
         move_map= next_goal(client,move_map,20,width,heigth)
-
-        # TODO delete comment ''' and test!
         
+        # RING APPROACH
         try:
             rinfo = rospy.wait_for_message("rings_info", objs_info)
         except Exception as e:
@@ -418,9 +463,31 @@ def main():
             # say color
             soundhandle.stopAll()
             soundhandle.say(rinfo.colors[len(rinfo.poses) - 1-i])
+
+        #CYLINDER APPROACH
+        try:
+            cinfo = rospy.wait_for_message("cylinders_info", objs_info)
+        except Exception as e:
+            print(e)
+
+        i = 0
         
-        #TODO cylinders
+        while len(cylinders_info.poses) < len(cinfo.poses):
         
+            
+            # get new cylinder pose and color
+            cylinders_info.poses = np.append (cylinders_info.poses, cinfo.poses[len(cinfo.poses) - 1-i]) 
+            cylinders_info.colors = np.append (cylinders_info.colors, cinfo.colors[len(cinfo.poses) - 1-i]) 
+            i=i+1
+
+            print("FOUND A NEW CYLINDER")
+            print(len(cinfo.poses))
+           
+            move_bot_cylinders(client, cinfo.poses[len(rinfo.poses) - 1-i].position.x,cinfo.poses[len(rinfo.poses) - 1-i].position.y, cinfo.robot_point_stamped.point.x, cinfo.robot_point_stamped.point.y)
+            # say color
+            soundhandle.stopAll()
+            soundhandle.say(cinfo.colors[len(rinfo.poses) - 1-i])
+       
 
     plt.close()
     fig, axes = plt.subplots(1, 5, figsize=(8, 4), sharex=True, sharey=True)
