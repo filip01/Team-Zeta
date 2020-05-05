@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(exercise6)
+add_compile_options(-std=c++11)
 
 ## Find system dependencies
 find_package(Boost REQUIRED COMPONENTS system filesystem thread)
