@@ -31,7 +31,7 @@ from sound_play.libsoundplay import SoundClient
 x_current = 270
 y_current = 280 
 x_previous = 270
-y_previous = 280 
+y_previous = 320
 map_resolution = 0
 map_transform = TransformStamped()
 heigth = 0
@@ -116,23 +116,36 @@ def move_bot_rings(client, x,y, skeleton):
     xgoal=0
     ygoal=0
 
+    print("bot at ", x, " ", y)
+
 
     #find nearest possible goal on the skeleton
     for i in xrange(heigth):
         for j in xrange(width):
             if skeleton[i][j] == 1:
-                if  euclidian_distance(x,y,j,i) < min_d:
-                    min_d = euclidian_distance(x,y,j,i)
-                    xgoal = j
-                    ygoal = i
 
-           
+                pt = PointStamped()
+                pt.point.x = j * map_resolution
+                pt.point.y = (heigth - i) * map_resolution
+                pt.point.z = 0.0
 
+                pose_transformed = tf2_geometry_msgs.do_transform_point(pt, map_transform)
+
+
+                x2=pose_transformed.point.x
+                y2=pose_transformed.point.y
+
+                if  euclidian_distance(x,y,x2,y2) < min_d:
+                    min_d = euclidian_distance(x,y,x2,y2)
+                    xgoal = x2
+                    ygoal = y2
+
+    #print("xgoal, ygoal : ", xgoal, ygoal)                
 
     angle = np.arctan2((y-ygoal),(x-xgoal))
 
 
-    print("Sending to face the ring: ", x, " ", y, " angle: ", angle)
+    print("Sending to face the ring: @[",x, ", ", y,"] ",  xgoal, " ", ygoal, " angle: ", angle)
 
    
     q = quaternion_from_euler(0,0,angle)
@@ -353,17 +366,22 @@ def main():
                rgb[i][j][0] = 150
                move_map[i][j] = 100
 
+
+
     try:
         pose = rospy.wait_for_message("/amcl_pose", PoseWithCovarianceStamped)
         #TO DO: get initial pose
      
     except Exception as e:
         print(e)
+   
 
     client = actionlib.SimpleActionClient('move_base',MoveBaseAction)
     client.wait_for_server()
-    
 
+    print("hello")
+    
+    
     #send turtlebot to initial point for testing purposes
     move_bot(client,x_current,y_current, x_previous, y_previous)
 
@@ -383,21 +401,23 @@ def main():
         except Exception as e:
             print(e)
         # TODO move to (under?) the ring
+        i = 0
+        while len(rings_info.poses) < len(rinfo.poses):
         
-        if len(rings_info.poses) < len(rinfo.poses):
-            # detected new ring!
-            rings_info = rinfo
+            
             # get new ring pose and color
-            ring_pose = rings_info.poses[len(rings_info.poses) - 1]
-            ring_color = rings_info.colors[len(rings_info.poses) - 1]
+            rings_info.poses = np.append (rings_info.poses, rinfo.poses[len(rinfo.poses) - 1-i]) 
+            rings_info.colors = np.append (rings_info.colors, rinfo.colors[len(rinfo.poses) - 1-i]) 
+            i=i+1
 
             # TODO move to (under?) the ring
             print("FOUND NEW RING")
+            print(len(rinfo.poses))
            
-            move_bot_rings(client, ring_pose.position.x,ring_pose.position.y, skeleton)
+            move_bot_rings(client, rinfo.poses[len(rinfo.poses) - 1-i].position.x,rinfo.poses[len(rinfo.poses) - 1-i].position.y, skeleton)
             # say color
             soundhandle.stopAll()
-            soundhandle.say(ring_color)
+            soundhandle.say(rinfo.colors[len(rinfo.poses) - 1-i])
         
         #TODO cylinders
         
