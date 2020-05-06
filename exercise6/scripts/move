@@ -111,8 +111,8 @@ def move_bot(client, twist_pub, x,y, xPrev, yPrev):
 
 def rotate(twist_pub):
     vel_msg = Twist()
-    angular_speed = 60*2*PI/360
-    relative_angle = 2*PI
+    angular_speed = 2000*2*PI/360
+    relative_angle = 200*PI
     vel_msg.linear.x = 0
     vel_msg.linear.y = 0
     vel_msg.linear.z = 0
@@ -470,8 +470,7 @@ def main():
     
     twist_pub = rospy.Publisher('/mobile_base/commands/velocity', Twist, queue_size=10)
     
-
-
+    rotate(twist_pub)
     print("hello")
     
     
