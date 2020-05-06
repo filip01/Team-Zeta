@@ -363,7 +363,7 @@ def next_goal(client, map, r, width, heigth):
           print("space explored! ", goals_count)
           goalx=-1
         else:
-
+            '''
             #check if there is a goal already set nearby
             for i in xrange(-r3,r3,1):
               for j in xrange(-r3,r3,1):
@@ -380,8 +380,9 @@ def next_goal(client, map, r, width, heigth):
             if goalx ==  x_current and goaly == y_current:
                 print("break, point too close to already visited point!")
             else:
-                print("break, number of goals: ",goals_count)
-                map[goaly][goalx] = 180  
+            '''
+            print("break, number of goals: ",goals_count)
+            map[goaly][goalx] = 180  
 
     else:
         map[goaly][goalx] = 180
@@ -600,14 +601,14 @@ def main():
             
             # get new ring pose and color
             rings_info.poses = np.append (rings_info.poses, rinfo.poses[len(rinfo.poses) - 1-i]) 
-            rings_info.colors = np.append (rings_info.colors, rinfo.colors[len(rinfo.poses) - 1-i]) 
+            rings_info.colors = np.append (rings_info.colors, rinfo.colors[len(rinfo.colors) - 1-i]) 
             i=i+1
 
             # TODO move to (under?) the ring
             print("FOUND NEW RING")
             print(len(rinfo.poses))
            
-            move_bot_rings(client, rinfo.poses[len(rinfo.poses) - 1-i].position.x,rinfo.poses[len(rinfo.poses) - 1-i].position.y, skeleton,rinfo.colors[len(rinfo.poses) - 1-i],soundhandle )
+            move_bot_rings(client, rinfo.poses[len(rinfo.poses) - 1-i].position.x,rinfo.poses[len(rinfo.poses) - 1-i].position.y, skeleton,rinfo.colors[len(rinfo.colors) - 1-i],soundhandle )
            
 
         #CYLINDER APPROACH
@@ -687,3 +688,4 @@ def main():
 import matplotlib.pyplot as plt
 if __name__ == '__main__':
     main()
+
