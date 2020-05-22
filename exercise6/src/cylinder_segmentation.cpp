@@ -3,6 +3,7 @@
 #include <ros/topic.h>
 #include <math.h>
 #include <visualization_msgs/Marker.h>
+#include <visualization_msgs/MarkerArray.h>
 #include <sensor_msgs/PointCloud2.h>
 #include <pcl_conversions/pcl_conversions.h>
 #include <pcl/ModelCoefficients.h>
@@ -30,8 +31,9 @@ ros::Publisher pubm;
 ros::Publisher pubCloud;
 ros::Publisher pub_cylinder_img;
 ros::Publisher cylinders_info_pub;
-
 ros::ServiceClient color_client;
+visualization_msgs::MarkerArray markerArray;
+int id=0;
 
 tf2_ros::Buffer tf2_buffer;
 
@@ -128,7 +130,7 @@ void cloud_cb(const pcl::PCLPointCloud2ConstPtr &cloud_blob)
 
   // Read in the cloud data
   pcl::fromPCLPointCloud2(*cloud_downsampled, *cloud);
-  std::cerr << "PointCloud has: " << cloud->points.size() << " data points." << std::endl;
+  //std::cerr << "PointCloud has: " << cloud->points.size() << " data points." << std::endl;
 
   // filter cloud: remove points too high
   pass.setInputCloud(cloud);
@@ -142,7 +144,7 @@ void cloud_cb(const pcl::PCLPointCloud2ConstPtr &cloud_blob)
   pass.setFilterLimits(0, 1.7);
   pass.filter(*cloud_filtered2);
 
-  std::cerr << "PointCloud after filtering has: " << cloud_filtered2->points.size() << " data points." << std::endl;
+  //std::cerr << "PointCloud after filtering has: " << cloud_filtered2->points.size() << " data points." << std::endl;
 
   // Estimate point normals
   ne.setSearchMethod(tree);
@@ -162,7 +164,7 @@ void cloud_cb(const pcl::PCLPointCloud2ConstPtr &cloud_blob)
 
   // Obtain the plane inliers and coefficients
   seg.segment(*inliers_plane, *coefficients_plane);
-  std::cerr << "Plane coefficients: " << *coefficients_plane << std::endl;
+  //std::cerr << "Plane coefficients: " << *coefficients_plane << std::endl;
 
   // Extract the planar inliers from the input cloud
   extract.setInputCloud(cloud_filtered2);
@@ -172,7 +174,7 @@ void cloud_cb(const pcl::PCLPointCloud2ConstPtr &cloud_blob)
   // Write the planar inliers to disk
   pcl::PointCloud<PointT>::Ptr cloud_plane(new pcl::PointCloud<PointT>());
   extract.filter(*cloud_plane);
-  std::cerr << "PointCloud representing the planar component: " << cloud_plane->points.size() << " data points." << std::endl;
+  //std::cerr << "PointCloud representing the planar component: " << cloud_plane->points.size() << " data points." << std::endl;
 
   //publish the extracted plane
   pcl::PCLPointCloud2 outcloud_plane;
@@ -205,7 +207,7 @@ void cloud_cb(const pcl::PCLPointCloud2ConstPtr &cloud_blob)
 
   // Obtain the cylinder inliers and coefficients
   seg.segment(*inliers_cylinder, *coefficients_cylinder);
-  std::cerr << "Cylinder coefficients: " << *coefficients_cylinder << std::endl;
+ // std::cerr << "Cylinder coefficients: " << *coefficients_cylinder << std::endl;
 
   // Write the cylinder inliers to disk
   extract.setInputCloud(cloud_filtered2);
@@ -225,6 +227,7 @@ void cloud_cb(const pcl::PCLPointCloud2ConstPtr &cloud_blob)
     }
   else
   {
+    
     sensor_msgs::Image image_;
     pcl::toROSMsg(*cloud_cylinder, image_); //convert the cloud
 
@@ -233,24 +236,19 @@ void cloud_cb(const pcl::PCLPointCloud2ConstPtr &cloud_blob)
     std::string color;
     if (color_client.call(srv)) {
       color = srv.response.color;
-      std::cerr << "Got color :" << color.c_str();
+      std::cerr << "Got color :" << color.c_str() << std::endl;
+    } else {
+      // didnt get a color D:
+      return;
     }
-
-    for (auto &c: cylinders_info.colors) {
-      if (color.compare(c) == 0) { 
-        return; // already found cylinder of this color
-      }
-    }
-
-    std::cerr << "PointCloud representing the cylindrical component: " << cloud_cylinder->points.size() << " data points." << std::endl;
-
+    float margin = 0.7;
     pcl::compute3DCentroid(*cloud_cylinder, centroid);
-    std::cerr << "centroid of the cylindrical component: " << centroid[0] << " " << centroid[1] << " " << centroid[2] << " " << centroid[3] << std::endl;
+
+    /// TRANSFORM ///
 
     //Create a point in the "camera_rgb_optical_frame"
     geometry_msgs::PointStamped point_camera;
     geometry_msgs::PointStamped point_map;
-    visualization_msgs::Marker marker;
     geometry_msgs::TransformStamped tss;
 
     point_camera.header.frame_id = "camera_rgb_optical_frame";
@@ -279,16 +277,47 @@ void cloud_cb(const pcl::PCLPointCloud2ConstPtr &cloud_blob)
 
     tf2::doTransform(point_camera, point_map, tss);
 
-    std::cerr << "point_camera: " << point_camera.point.x << " " << point_camera.point.y << " " << point_camera.point.z << std::endl;
-    std::cerr << "point_map: " << point_map.point.x << " " << point_map.point.y << " " << point_map.point.z << std::endl;
+    // std::cerr << "point_camera: " << point_camera.point.x << " " << point_camera.point.y << " " << point_camera.point.z << std::endl;
+    // std::cerr << "point_map: " << point_map.point.x << " " << point_map.point.y << " " << point_map.point.z << std::endl;
+
+    /// TRANSFORM END///
+
+    for (auto &p: cylinders_info.poses) {
+      //std::cerr << "Pose: " << p.position.x << " " << p.position.y << " " << p.position.z << std::endl;
+      //std::cerr << "centroid of the cylindrical component: " << point_map.point.x << " " << point_map.point.y << " " << point_map.point.z << std::endl;
+      
+      if ( point_map.point.x + margin > p.position.x  && point_map.point.x - margin < p.position.x  && point_map.point.y + margin > p.position.y && point_map.point.y - margin < p.position.y && point_map.point.z + margin > p.position.z && point_map.point.z - margin < p.position.z){
+          std::cerr << "Cylinder already found!" << std::endl;
+          return;
+      } 
+      
+    }
+    /* 
+    
+    CHECKING BASED ON COLOR, NOT NECESSARY
+
+    for (auto &c: cylinders_info.colors) {
+      if (color.compare(c) == 0) { 
+        return; // already found cylinder of this color
+      }
+    } 
+    
+    */
+  
+    //std::cerr << "PointCloud representing the cylindrical component: " << cloud_cylinder->points.size() << " data points." << std::endl;
+    //std::cerr << "centroid of the cylindrical component: " << centroid[0] << " " << centroid[1] << " " << centroid[2] << " " << centroid[3] << std::endl;
+    
+
 
     cylinders_info.robot_point_stamped = get_robot_ps(time_rec, time_test);
 
+    visualization_msgs::Marker marker;
     marker.header.frame_id = "map";
     marker.header.stamp = ros::Time::now();
 
     marker.ns = "cylinder";
-    marker.id = 0;
+    marker.id = id;
+    id++;
 
     marker.type = visualization_msgs::Marker::CYLINDER;
     marker.action = visualization_msgs::Marker::ADD;
@@ -305,14 +334,47 @@ void cloud_cb(const pcl::PCLPointCloud2ConstPtr &cloud_blob)
     marker.scale.y = 0.1;
     marker.scale.z = 0.1;
 
-    marker.color.r = 0.0f;
-    marker.color.g = 1.0f;
-    marker.color.b = 0.0f;
+    float r = 1.0f;
+    float g = 1.0f;
+    float b = 1.0f;
+    std::cerr << "COLORR:::  " << color << " " << color.compare("green") << std::endl;
+    
+    if(color.compare("red") == 0) {
+       r = 1.0f;
+       g = 0.0f;
+       b = 0.0f;
+    }
+    if(color.compare("green") == 0) {
+       r = 0.0f;
+       g = 1.0f;
+       b = 0.0f;
+    }
+    if(color.compare("blue") == 0) {
+       r = 0.0f;
+       g = 0.0f;
+       b = 1.0f;
+    }
+    if(color.compare("yellow") == 0) {
+       r = 1.0f;
+       g = 1.0f;
+       b = 0.0f;
+    }
+    if(color.compare("black") == 0) {
+       r = 0.0f;
+       g = 0.0f;
+       b = 0.0f;
+    }
+
+    marker.color.r = r;
+    marker.color.g = g;
+    marker.color.b = b;
     marker.color.a = 1.0f;
 
     marker.lifetime = ros::Duration();
 
-    pubm.publish(marker);
+    markerArray.markers.push_back(marker);
+  
+    pubm.publish(markerArray);
 
     cylinders_info.poses.push_back(marker.pose);
     cylinders_info.colors.push_back(color);
@@ -329,6 +391,7 @@ int main(int argc, char **argv)
   ros::init(argc, argv, "cylinder_segment");
   ros::NodeHandle nh;
   ROS_INFO("Node started!");
+  markerArray.markers = {};
 
   // For transforming between coordinate frames
   tf2_ros::TransformListener tf2_listener(tf2_buffer);
@@ -341,7 +404,7 @@ int main(int argc, char **argv)
   puby = nh.advertise<pcl::PCLPointCloud2>("cylinder", 1);
   pubCloud = nh.advertise<pcl::PCLPointCloud2>("processedCloud", 1);
 
-  pubm = nh.advertise<visualization_msgs::Marker>("detected_cylinder", 1);
+  pubm = nh.advertise<visualization_msgs::MarkerArray>("detected_cylinders", 1);
 
   color_client = nh.serviceClient<exercise6::cylinder_color>("cylinder_color");
 
@@ -353,6 +416,8 @@ int main(int argc, char **argv)
   // Spin
   ros::Rate rate(10);
   while (ros::ok()) {
+
+    
     cylinders_info_pub.publish(cylinders_info);
     ros::spinOnce();
     rate.sleep();

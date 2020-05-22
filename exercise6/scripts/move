@@ -39,6 +39,8 @@ heigth = 0
 width = 0
 tf_buf = None
 tf_listener = None
+move_map= []
+rgb=[]
 
 def move_bot(client, x,y, xPrev, yPrev):
 
@@ -105,10 +107,127 @@ MOVING BACK
     else:
         result = client.get_result()
         if result:
-            print("goal reached!")     
+
+           print("goal reached!") 
+           turnToWall(client,x,y)
+             
+               
             #rotate()
         else:
             print("big oof")  
+
+def turnToWall(client, x,y):
+
+    global move_map
+    global map_transform
+    global map_resolution
+
+    r=17
+    NE=0
+    NW=0
+    SE=0
+    SW=0
+
+    # north-east
+    for i in xrange(-r,0,1):
+        for j in xrange(0,r,1):       
+            
+            y2 = i + y
+            x2 = j + x
+
+            if move_map[y2][x2] == 100:
+                NE= NE+1
+                
+
+    # north-west
+    for i in xrange(-r,0,1):
+        for j in xrange(-r,0,1):
+            
+            y2 = i + y
+            x2 = j + x
+
+            if move_map[y2][x2] == 100:
+                NW = NW + 1
+               
+
+    # south-west        
+    for i in xrange(0,r,1):
+        for j in xrange(-r,0,1):
+            
+            y2 = i + y
+            x2 = j + x
+
+            if move_map[y2][x2] == 100:
+                SW = SW + 1
+
+    # south-east
+    for i in xrange(0,r,1):
+        for j in xrange(0,r,1):
+            
+            y2 = i + y
+            x2 = j + x
+
+            if move_map[y2][x2] == 100:
+                SE = SE + 1
+                
+
+    north= NE + NW
+    south = SE + SW
+    east = SE + NE
+    west = SW + NW
+
+    angle = 0 
+
+    winner = max(north, south, east, west)
+
+    if(north == winner):
+       angle= PI / 2
+    elif(south == winner):
+       angle = (3 / 2) * PI
+    elif( east == winner):
+       angle= 0
+    else:
+      angle = PI
+
+   
+
+    pt = PointStamped()
+    pt.point.x = x * map_resolution
+    pt.point.y = (heigth - y) * map_resolution
+    pt.point.z = 0.0
+
+    pose_transformed = tf2_geometry_msgs.do_transform_point(pt, map_transform)
+
+    q = quaternion_from_euler(0,0,angle)
+
+    goal = MoveBaseGoal()
+    goal.target_pose.header.frame_id = "map"
+    goal.target_pose.header.stamp = rospy.Time.now()
+    goal.target_pose.pose.position.x = pose_transformed.point.x
+    goal.target_pose.pose.position.y = pose_transformed.point.y
+    goal.target_pose.pose.position.z = 0.0
+    goal.target_pose.pose.orientation.x = q[0]
+    goal.target_pose.pose.orientation.y = q[1]
+    goal.target_pose.pose.orientation.z = q[2]
+    goal.target_pose.pose.orientation.w = q[3]
+
+    client.send_goal(goal)
+    wait = client.wait_for_result()
+    print(wait)
+
+    if not wait:
+        rospy.logerr("Action server not available!")
+        rospy.signal_shutdown("Action server not available!")
+    else:
+        result = client.get_result()
+        if result:
+           print("turned to wall!") 
+        
+        else:
+            print("big oof")  
+    
+    
+
 
 def rotate(twist_pub,angle):
 
@@ -325,6 +444,7 @@ def next_goal(client, map, r, width, heigth):
     global y_current
     r2=15
     r3=r2
+    
 
 
     for i in xrange(-r,r,1):
@@ -419,6 +539,8 @@ def main():
     global heigth
     global map_transform
     global map_resolution
+    global move_map
+    global rgb
 
     rospy.init_node("move")
     soundhandle = SoundClient()
@@ -540,7 +662,8 @@ def main():
     
     
     
-    rotate(twist_pub)
+
+
     print("hello")
 
     plt.close()
@@ -588,7 +711,9 @@ def main():
 
 
         move_map= next_goal(client, move_map,20,width,heigth)
-    
+
+
+        '''
         # RING APPROACH
         try:
             rinfo = rospy.wait_for_message("rings_info", objs_info)
@@ -624,7 +749,7 @@ def main():
             
             # get new cylinder pose and color
             cylinders_info.poses = np.append (cylinders_info.poses, cinfo.poses[len(cinfo.poses) - 1-i]) 
-            cylinders_info.colors = np.append (cylinders_info.colors, cinfo.colors[len(cinfo.poses) - 1-i]) 
+            cylinders_info.colors = np.append (cylinders_info.colors, cinfo.colors[len(cinfo.colors) - 1-i]) 
             i=i+1
 
             print("FOUND A NEW CYLINDER")
@@ -634,6 +759,7 @@ def main():
             # say color
             soundhandle.stopAll()
             soundhandle.say(cinfo.colors[len(cinfo.poses) - 1-i])
+        '''
        
 
     plt.close()
@@ -688,4 +814,3 @@ def main():
 import matplotlib.pyplot as plt
 if __name__ == '__main__':
     main()
-
