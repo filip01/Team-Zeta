@@ -23,7 +23,6 @@ if __name__ == '__main__':
         for file in glob.glob(directory + '/*'):
             file_name = file.split('/')
             file_name = file_name[len(file_name)-1]
-            print(file_name[:4])
             if file_name[:4] == 'face':
                 continue
 
