@@ -42,6 +42,8 @@ tf_listener = None
 move_map= []
 rgb=[]
 
+arm_movement_pub = rospy.Publisher("/arm_command", String, queue_size=1)
+
 def move_bot(client, x,y, xPrev, yPrev):
 
     global map_transform
@@ -123,6 +125,7 @@ def turnToWall(client, x,y):
     global map_resolution
 
     r=17
+
     NE=0
     NW=0
     SE=0
@@ -159,6 +162,7 @@ def turnToWall(client, x,y):
 
             if move_map[y2][x2] == 100:
                 SW = SW + 1
+                rgb[y2][x2][1] = 100
 
     # south-east
     for i in xrange(0,r,1):
@@ -169,6 +173,7 @@ def turnToWall(client, x,y):
 
             if move_map[y2][x2] == 100:
                 SE = SE + 1
+                #rgb[y2][x2][2] = 100
                 
 
     north= NE + NW
@@ -177,17 +182,44 @@ def turnToWall(client, x,y):
     west = SW + NW
 
     angle = 0 
+    angle2 = 0
 
     winner = max(north, south, east, west)
+    winnerStr = ""
+    second = 0
+    secondStr = ""
 
+    # side with most walls
     if(north == winner):
-       angle= PI / 2
+       angle= PI / float(2)
+       winnerStr = "north"
+       second = max(south, east, west)
     elif(south == winner):
-       angle = (3 / 2) * PI
+       angle = (float(3) / float(2)) * PI
+       winnerStr = "south"
+       second = max(north, east, west)
     elif( east == winner):
+       second = max(south, north, west)
+       winnerStr = "east"
        angle= 0
     else:
+      second = max(south, north, east)
+      winnerStr = "west"
       angle = PI
+
+    #second drafting
+    if(north == second):
+       angle2= PI / float(2)
+       secondStr = "north"
+    elif(south == second):
+       angle2 = (float(3) / float(2)) * PI
+       secondStr = "south"
+    elif( east == second):
+       angle2= 0
+       secondStr = "east"
+    else:
+      angle2 = PI
+      secondStr = "west"
 
    
 
@@ -213,7 +245,6 @@ def turnToWall(client, x,y):
 
     client.send_goal(goal)
     wait = client.wait_for_result()
-    print(wait)
 
     if not wait:
         rospy.logerr("Action server not available!")
@@ -221,7 +252,26 @@ def turnToWall(client, x,y):
     else:
         result = client.get_result()
         if result:
-           print("turned to wall!") 
+            print("turned to wall! ", winnerStr) 
+            q = quaternion_from_euler(0,0,angle2)
+            goal.target_pose.pose.orientation.x = q[0]
+            goal.target_pose.pose.orientation.y = q[1]
+            goal.target_pose.pose.orientation.z = q[2]
+            goal.target_pose.pose.orientation.w = q[3]
+
+            client.send_goal(goal)
+            wait = client.wait_for_result()
+            
+            if not wait:
+                rospy.logerr("Action server not available!")
+                rospy.signal_shutdown("Action server not available!")
+            else:
+                result = client.get_result()
+                if result:
+                    print("turned to second wall! ", secondStr) 
+                
+                else:
+                    print("big oof") 
         
         else:
             print("big oof")  
@@ -386,8 +436,85 @@ def move_bot_rings(client, x,y, skeleton, color, soundhandle):
             
         else:
             print("big oof")  
-  
-def move_bot_cylinders(client, x,y, xBot, yBot):
+
+
+def approachCylinder(soundhandle, distance, speed, color):
+
+    twist_pub = rospy.Publisher('/mobile_base/commands/velocity', Twist, queue_size=10)
+
+    print("Aproaching the cylinder")
+
+    rate = rospy.Rate(10)
+
+    vel_msg = Twist()
+    vel_msg.linear.x = speed
+    vel_msg.linear.y = 0
+    vel_msg.linear.z = 0
+    vel_msg.angular.x = 0
+    vel_msg.angular.y = 0
+    vel_msg.angular.z = 0
+
+    t0 = rospy.Time.now().to_sec()
+    current_distance = 0
+    #Loop to move the turtle in an specified distance
+    while(current_distance < distance):
+        #Publish the velocity
+        twist_pub.publish(vel_msg)
+        #Takes actual time to velocity calculus
+        t1=rospy.Time.now().to_sec()            
+        #Calculates distancePoseStamped
+        current_distance= speed*(t1-t0)
+        rate.sleep()
+
+    #After the loop, stops the robot
+    vel_msg.linear.x = 0
+    #Force the robot to stop
+    twist_pub.publish(vel_msg)
+
+   
+
+    msg = String()
+    msg.data = "extend"
+
+    # say color
+    soundhandle.stopAll()
+    soundhandle.say(color)
+    rospy.sleep(1)
+
+    arm_movement_pub.publish(msg)
+    rospy.sleep(2)
+
+    msg.data = "retract"
+    arm_movement_pub.publish(msg)
+    rospy.sleep(2)
+    
+    print("ROTATING")
+    rotate(twist_pub,180)
+
+    print("MOVING BACK")
+
+    t0 = rospy.Time.now().to_sec()
+    current_distance = 0
+    vel_msg.linear.x = speed
+
+    #Loop to move the turtle in an specified distance
+    while(current_distance < distance):
+        #Publish the velocity
+        twist_pub.publish(vel_msg)
+        #Takes actual time to velocity calculus
+        t1=rospy.Time.now().to_sec()            
+        #Calculates distancePoseStamped
+        current_distance= speed*(t1-t0)
+        rate.sleep()
+
+    #After the loop, stops the robot
+    vel_msg.linear.x = 0
+    #Force the robot to stop
+    twist_pub.publish(vel_msg)
+
+def move_bot_cylinders(client, x,y, xBot, yBot, color, soundhandle):
+
+    global arm_movement_pub
 
     dx = xBot - x
     dy = yBot - y
@@ -428,7 +555,12 @@ def move_bot_cylinders(client, x,y, xBot, yBot):
     else:
         result = client.get_result()
         if result:
+
             print("cylinder reached!") 
+            distance = 0.3
+            speed=0.1
+            approachCylinder(soundhandle, distance, speed, color)
+          
         else:
             print("big oof")  
 
@@ -661,40 +793,6 @@ def main():
     client.wait_for_server()
     
     
-    
-
-
-    print("hello")
-
-    plt.close()
-    fig, axes = plt.subplots(1, 5, figsize=(8, 4), sharex=True, sharey=True)
-    ax = axes.ravel()
-
-    ax[0].imshow(dilatedOriginal, cmap=plt.cm.gray)
-    ax[0].set_title('dilated')
-    ax[0].axis('off')
-
-    ax[1].imshow(skeleton, cmap=plt.cm.gray)
-    ax[1].set_title('skeletonized')
-    ax[1].axis('off')
-
-    ax[2].imshow(cv_map, cmap=plt.cm.gray)
-    ax[2].set_title('original')
-    ax[2].axis('off')
-
-    ax[3].imshow(rgb, cmap=plt.cm.gray)
-    ax[3].set_title('rgb representation')
-    ax[3].axis('off')
-
-    ax[4].imshow(move_map, cmap=plt.cm.gray)
-    ax[4].set_title('moved')
-    ax[4].axis('off')
-
-
-    fig.tight_layout()
-    plt.show()
-    
-    
     #send turtlebot to initial point for testing purposes
     move_bot(client, x_current,y_current, x_previous, y_previous)
 
@@ -727,14 +825,15 @@ def main():
             # get new ring pose and color
             rings_info.poses = np.append (rings_info.poses, rinfo.poses[len(rinfo.poses) - 1-i]) 
             rings_info.colors = np.append (rings_info.colors, rinfo.colors[len(rinfo.colors) - 1-i]) 
-            i=i+1
+            
 
             # TODO move to (under?) the ring
             print("FOUND NEW RING")
             print(len(rinfo.poses))
            
             move_bot_rings(client, rinfo.poses[len(rinfo.poses) - 1-i].position.x,rinfo.poses[len(rinfo.poses) - 1-i].position.y, skeleton,rinfo.colors[len(rinfo.colors) - 1-i],soundhandle )
-           
+            i=i+1
+        '''  
 
         #CYLINDER APPROACH
         try:
@@ -750,16 +849,15 @@ def main():
             # get new cylinder pose and color
             cylinders_info.poses = np.append (cylinders_info.poses, cinfo.poses[len(cinfo.poses) - 1-i]) 
             cylinders_info.colors = np.append (cylinders_info.colors, cinfo.colors[len(cinfo.colors) - 1-i]) 
-            i=i+1
 
             print("FOUND A NEW CYLINDER")
             print(len(cinfo.poses))
            
-            move_bot_cylinders(client, cinfo.poses[len(cinfo.poses) - 1-i].position.x,cinfo.poses[len(cinfo.poses) - 1-i].position.y, cinfo.robot_point_stamped.point.x, cinfo.robot_point_stamped.point.y)
-            # say color
-            soundhandle.stopAll()
-            soundhandle.say(cinfo.colors[len(cinfo.poses) - 1-i])
-        '''
+            color = cinfo.colors[len(cinfo.poses) - 1-i]
+
+            move_bot_cylinders(client, cinfo.poses[len(cinfo.poses) - 1-i].position.x,cinfo.poses[len(cinfo.poses) - 1-i].position.y, cinfo.robot_point_stamped.point.x, cinfo.robot_point_stamped.point.y, color, soundhandle)
+            i=i+1
+       
        
 
     plt.close()
