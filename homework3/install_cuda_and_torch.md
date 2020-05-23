@@ -17,7 +17,10 @@ Now you need to restart your system.
 
 Install pytorch.
 ```
-python -m pip install torch torchvision
+virtualenv --no-site-packages -p python3 ros3env
+. ./ros3env/bin/actiave
+pip install --extra-index-url https://rospypi.github.io/simple/ rospy
+pip install torch torchvision
 ```
 
 Test installation in REPL.
