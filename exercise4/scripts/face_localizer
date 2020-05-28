@@ -17,6 +17,7 @@ from geometry_msgs.msg import PointStamped, Vector3, Pose, Twist
 from cv_bridge import CvBridge, CvBridgeError
 from visualization_msgs.msg import Marker, MarkerArray
 from std_msgs.msg import ColorRGBA
+from exercise4.msg import faces_info
 
 
 class face_localizer:
@@ -55,6 +56,10 @@ class face_localizer:
         # Object we use for transforming between coordinate frames
         self.tf_buf = tf2_ros.Buffer()
         self.tf_listener = tf2_ros.TransformListener(self.tf_buf)
+
+        #for publishing faces information
+        self.faces = faces_info()
+        self.faces_pub = rospy.Publisher('faces_info', faces_info, queue_size=10)
 
 
     def get_pose(self,coords,dist,stamp):
@@ -192,6 +197,7 @@ class face_localizer:
         # For each detected face, extract the depth from the depth image
         self.markers_pub.publish(self.marker_array)
         self.markers_pub_2.publish(self.marker_array_2)
+        self.faces_pub.publish(self.faces)
         for (x,y,w,h) in faces:
             #print('Faces were detected\nNumber of faces: ',len(face_rectangles))
 
@@ -216,8 +222,8 @@ class face_localizer:
             face_region = rgb_image[y1:y2,x1:x2]
         
             # Visualize the extracted face
-            cv2.imshow("Depth window", face_region)
-            cv2.waitKey(1)
+            #cv2.imshow("Depth window", face_region)
+            #cv2.waitKey(1)
 
 
             # Find the distance to the detected face
@@ -249,7 +255,27 @@ class face_localizer:
                 self.marker_array.markers.append(marker)
                 self.markers_pub.publish(self.marker_array)
 
+               
                 pose_2 = self.pub_front_face(pose)
+
+                #cv2.imshow("Face", face_region)
+                #cv2.waitKey(1)
+
+                try:
+                    rgb_msg = self.bridge.cv2_to_imgmsg(face_region, "bgr8")
+                    
+                except CvBridgeError as e:
+                    print(e)
+
+                #sending detected faces 
+                self.faces.poses.append(pose)
+                self.faces.robotPoses.append(pose_2)
+                #TO DO: add other features
+                self.faces.hairColor.append("TODO")
+                self.faces.hairLength.append("TODO")
+                self.faces.ids.append(0) 
+                self.faces.images.append(rgb_msg)
+                self.faces_pub.publish(self.faces)
 
                 self.marker_num_2 += 1
                 marker_2 = Marker()
@@ -284,6 +310,7 @@ class face_localizer:
 
         x, y = point_world.point.x, point_world.point.y
 
+        
         dx = x - xF
         dy = y - yF
         xN = dx / math.sqrt(float(dx*dx + dy *dy))  # normalize

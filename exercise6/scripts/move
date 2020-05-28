@@ -27,6 +27,7 @@ from nav_msgs.msg import OccupancyGrid
 from skimage.util import invert
 from exercise6.msg import objs_info
 from sound_play.libsoundplay import SoundClient
+from exercise4.msg import faces_info
 
 PI = 3.1415926535897 
 x_current = 247
@@ -664,6 +665,87 @@ def next_goal(client, map, r, width, heigth):
 def euclidian_distance(x,y ,x2, y2):
     return math.sqrt(math.pow(abs(x-x2),2) + math.pow(abs(y-y2),2))
 
+def calculateFaceApproach(faces_info, skeleton, client):
+    global heigth
+    global width
+    global map_resolution
+    global map_transform
+    for k in xrange(len(faces_info.poses)):
+    
+        min_d=1000
+        xgoal=0
+        ygoal=0
+        x = faces_info.poses[k].position.x
+        y = faces_info.poses[k].position.y
+
+        bridge = CvBridge()
+        try:
+            rgb_image = bridge.imgmsg_to_cv2(faces_info.images[k], "bgr8")
+        except CvBridgeError as e:
+            print(e)
+
+        #cv2.imshow("Face", rgb_image)
+        #cv2.waitKey(1)
+
+        #find nearest possible goal on the skeleton
+        for i in xrange(heigth):
+            for j in xrange(width):
+                if skeleton[i][j] == 1:
+
+                    pt = PointStamped()
+                    pt.point.x = j * map_resolution
+                    pt.point.y = (heigth - i) * map_resolution
+                    pt.point.z = 0.0
+
+                    pose_transformed = tf2_geometry_msgs.do_transform_point(pt, map_transform)
+
+
+                    x2=pose_transformed.point.x
+                    y2=pose_transformed.point.y
+
+                    if  euclidian_distance(x,y,x2,y2) < min_d and  euclidian_distance(x2,y2, faces_info.robotPoses[k].position.x, faces_info.robotPoses[k].position.y) < 0.36:
+                        min_d = euclidian_distance(x,y,x2,y2)
+                        xgoal = x2
+                        ygoal = y2
+
+        #print("xgoal, ygoal : ", xgoal, ygoal)                
+
+        angle = np.arctan2((y-ygoal),(x-xgoal))
+
+
+        print("Sending to approcah the face: @[",x, ", ", y,"] ",  xgoal, " ", ygoal, " angle: ", angle)
+        #print("DISTANCE TO ROBOT POS:",euclidian_distance(xgoal,ygoal, faces_info.robotPoses[k].position.x, faces_info.robotPoses[k].position.y) )  
+       
+
+    
+        q = quaternion_from_euler(0,0,angle)
+
+        
+        goal = MoveBaseGoal()
+        goal.target_pose.header.frame_id = "map"
+        goal.target_pose.header.stamp = rospy.Time.now()
+        goal.target_pose.pose.position.x = xgoal
+        goal.target_pose.pose.position.y = ygoal
+        goal.target_pose.pose.position.z = 0.0
+        goal.target_pose.pose.orientation.x = q[0]
+        goal.target_pose.pose.orientation.y = q[1]
+        goal.target_pose.pose.orientation.z = q[2]
+        goal.target_pose.pose.orientation.w = q[3]
+
+        client.send_goal(goal)
+        wait = client.wait_for_result()
+
+        if not wait:
+            rospy.logerr("Action server not available!")
+            rospy.signal_shutdown("Action server not available!")
+        else:
+            result = client.get_result()
+            if result:
+                print("ring reached!") 
+            else:
+                print("this is fucked")
+         
+       
 
 def main():
 
@@ -803,7 +885,13 @@ def main():
 
     cylinders_info = objs_info()
     cylinders_info.poses, cylinders_info.colors = [], []
-  
+    
+    try:
+        facesInfo = rospy.wait_for_message("faces_info", faces_info)
+    except Exception as e:
+        print(e)
+
+    calculateFaceApproach(facesInfo,skeleton,client)
     
     while x_current != -1:
 
@@ -834,7 +922,7 @@ def main():
             move_bot_rings(client, rinfo.poses[len(rinfo.poses) - 1-i].position.x,rinfo.poses[len(rinfo.poses) - 1-i].position.y, skeleton,rinfo.colors[len(rinfo.colors) - 1-i],soundhandle )
             i=i+1
         '''  
-
+        '''
         #CYLINDER APPROACH
         try:
             cinfo = rospy.wait_for_message("cylinders_info", objs_info)
@@ -857,8 +945,8 @@ def main():
 
             move_bot_cylinders(client, cinfo.poses[len(cinfo.poses) - 1-i].position.x,cinfo.poses[len(cinfo.poses) - 1-i].position.y, cinfo.robot_point_stamped.point.x, cinfo.robot_point_stamped.point.y, color, soundhandle)
             i=i+1
-       
-       
+        '''
+        
 
     plt.close()
     fig, axes = plt.subplots(1, 5, figsize=(8, 4), sharex=True, sharey=True)

@@ -11,8 +11,28 @@ find_package(catkin REQUIRED COMPONENTS
 	std_msgs
 	geometry_msgs
 	sound_play
+	message_generation
 )
 
+
+
+add_message_files(
+  FILES
+  faces_info.msg
+)
+
+generate_messages(
+	DEPENDENCIES
+	roscpp
+	sensor_msgs
+	visualization_msgs
+	std_msgs
+	geometry_msgs	
+)
+catkin_package(
+	CATKIN_DEPENDS 
+	message_runtime 
+)
 find_package( OpenCV REQUIRED )
 
 catkin_package()
