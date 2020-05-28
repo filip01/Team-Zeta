@@ -1,0 +1,66 @@
+% NS_B
+<s>        sil
+
+% NS_E
+</s>       sil
+
+% HMM
+FILLER		f m
+FILLER		w eh l
+
+% COLOR
+
+RED  r ae d
+RED  r ae 
+RED  r ae t
+BLUE  b l uw
+BLUE  b l ah
+BLACK b l ah k
+GREEN g r iy n
+YELLOW y eh l ow
+WHITE w ey t
+WHITE w ih t
+WHITE w ay
+
+%MY
+
+MY m ay
+
+%FAV
+
+FAVOURITE f ay r iy t
+
+%COL
+
+COLOR k ao l r
+
+%IS
+
+IS ix z
+
+%ACK
+YES        y eh s
+NO         n ow
+
+%WOMEN
+WOMEN w iy m eh n
+
+%WITH
+WITH w iy t
+
+%HAIRCOLOR
+DARK d ao r k
+DARK d ah
+DARK d ah l
+DARK d
+BRIGHT b r ay t
+
+%HAIRLENGTH
+SHORT s ao r t
+LONG l ah n 
+
+%HAIR
+HAIR hh ey 
+
+
+
