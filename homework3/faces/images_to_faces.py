@@ -23,6 +23,7 @@ if __name__ == '__main__':
         for file in glob.glob(directory + '/*'):
             file_name = file.split('/')
             file_name = file_name[len(file_name)-1]
+            print(file_name[:4])
             if file_name[:4] == 'face':
                 continue
 
@@ -35,6 +36,8 @@ if __name__ == '__main__':
             # todo: add min and max_size parameters
             faces = face_cascade.detectMultiScale(gray, haar_scale, min_neighbors, haar_flags)
             for (x,y,w,h) in faces:
-                crop = image[y:y+h, x:x+w]
+                dh = int(h/3.5)
+                dw = int(w/3.5)
+                crop = image[y-dh:y+h+dh, x-dw:x+w+dw]
                 cv2.imwrite(directory + '/' + dir_name + '_' + str(index) + '.jpg', crop)
                 index += 1
