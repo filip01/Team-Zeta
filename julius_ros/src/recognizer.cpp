@@ -29,6 +29,8 @@ Jconf *jconf = NULL;
 Recog *recog = NULL;
 
 bool running = FALSE;
+bool publish = FALSE;
+
 
 static inline bool is_not_alnum(char c) { return !(isalnum(c)); }
 
@@ -130,7 +132,13 @@ static void output_result(Recog *recog, void *dummy) {
 			std_msgs::String msg;
 			msg.data = sentence;
 
-			commands.publish(msg);
+
+            if(publish) {
+			 commands.publish(msg);
+			} else {
+				ROS_INFO("Not published to topic");
+			}
+			
 
 			/* LM entry sequence */
 			/*printf("wseq%d:", n+1);
@@ -185,6 +193,7 @@ bool start_service_callback(std_srvs::Empty::Request &req, std_srvs::Empty::Resp
 bool stop_service_callback(std_srvs::Empty::Request &req, std_srvs::Empty::Response &res) {
 
 	boost::lock_guard<boost::mutex> lock(request_mutex);
+
 
 	if (recog) j_request_pause(recog);
 
@@ -279,11 +288,25 @@ void watchdog(const ros::TimerEvent&) {
 
 }
 
+void toggle(const std_msgs::String::ConstPtr& msg) {
+	 
+	 if(msg -> data == "on"){
+	   ROS_INFO("Publishing to topic");
+       publish = TRUE;
+	 } else {
+	   ROS_INFO("Stopped publishing to topic");
+	   publish = FALSE;
+	 }
+      
+		
+}
+
 int main(int argc, char **argv) {
 
 	ros::init(argc, argv, "recognizer");
 	ros::NodeHandle n("~");
-
+	ros::NodeHandle n2;
+	
 	n.param("configuration", JULIUS_CONFIGURATION, string(""));
 	n.param("debug", JULIUS_DEBUG, (bool)FALSE);
 
@@ -291,20 +314,29 @@ int main(int argc, char **argv) {
 		ROS_ERROR("No Julius configuration file provided");
 		return -1;
 	}
-  
+
+
 	boost::thread julius_thread(recognize);
 
+
 	commands = n.advertise<std_msgs::String>(std::string("output"), 1000);
+
+    ros::Subscriber sub = n2.subscribe<std_msgs::String>("toggle", 1000, toggle);
+
 
 	ros::ServiceServer start_service = n.advertiseService<std_srvs::Empty::Request, std_srvs::Empty::Response>(ros::this_node::getName() + std::string("/start"), start_service_callback);
 
 	ros::ServiceServer stop_service = n.advertiseService<std_srvs::Empty::Request, std_srvs::Empty::Response>(ros::this_node::getName() + std::string("/stop"), stop_service_callback);
-
+    
+	
+    
 	n.createTimer(ros::Duration(5), watchdog);
 
 	ros::spin();
 
 	if (recog) j_request_terminate(recog);
+
+		
 
 	pause_variable.notify_all();
 
