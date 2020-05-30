@@ -34,7 +34,7 @@ length = {
     'face_10': 'short',
     'face_11': 'short',
     'face_12': 'long',
-    'face_13': 'short',
+    'face_13': 'long',
     'face_14': 'long',
     'face_15': 'short',
     'face_16': 'long',
