@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+import rospy
+from std_msgs.msg import String
 
 dfa = {0:{0:1}, 
        1:{0:0, 1:2},
@@ -16,6 +18,22 @@ dfa = {0:{0:1},
        13:{0:14},
        14:{0:14,1:7},
        15:{0:5, 1:16}}
+
+#for publishing dialogue and bot beliefs
+belief_display_pub = rospy.Publisher("/belief_text", String, queue_size=3)
+dialogue_display_pub = rospy.Publisher("/conversation_text", String, queue_size=3)
+
+# type is an int: 0 means bot belief, 1 means its dialogue
+def display(text, type):
+
+    t = String()
+    t.data = text
+
+    if type == 0:
+        belief_display_pub.publish(t)
+    else:
+        dialogue_display_pub.publish(t)
+
 
 def interakcijaZObrazom():
 
@@ -165,6 +183,8 @@ def raziskovanjeProstora():
     while(povezava == -1):
         if(stanje == 0):
             print("Robot raziskuje prostor, da bi nasel Gargamela.")
+            display("Robot raziskuje prostor, da bi nasel Gargamela.", 0)
+
             povezava = input("Povezava: ")
             print("Obraz zaznan.")
             stanje = dfa.get(stanje).get(povezava)
@@ -198,7 +218,7 @@ def raziskovanjeProstora():
             break
 
 def main():
-    
+    rospy.init_node("DFA")
     global stanje
     stanje = 0
 
@@ -206,7 +226,7 @@ def main():
     informacije = False
 
     raziskovanjeProstora()
-
+    rospy.spin()
 
 if __name__ == '__main__':
     main()

@@ -1,0 +1,56 @@
+#!/usr/bin/env python
+
+from __future__ import print_function
+import rospy
+from std_msgs.msg import String
+from Tkinter import *
+
+root = Tk()
+root.title("Robot belief")
+root.geometry("+10+10")
+lb = Listbox(root, font=("Helvetica", 13), bg='#F0F8FF', width=40, height=7)
+
+top = Toplevel()
+top.title("Dialogue")
+top.geometry("+10+350")
+lb2 = Listbox(top, font=("Helvetica", 13), bg='#F0F8FF', width=40, height=10)
+
+n = 0
+
+def newBelief(data):
+   global n
+   print("hello")
+   lb.insert(0, data.data)
+   lb.itemconfig(0, {'fg': 'black'})
+   #lb.yview(END)  
+
+   if n > 0:
+      lb.itemconfig(1, {'fg': '#778899'}) 
+
+   n=n+1
+
+def newDialogue(data):
+
+   lb2.insert(0, data.data)
+
+
+   
+   
+   
+def main():
+
+    rospy.init_node('text_display_node')
+    rospy.Subscriber("belief_text", String, newBelief)
+    rospy.Subscriber("conversation_text", String, newDialogue)
+
+
+    # --- start program ---
+    lb.pack()
+    lb2.pack()
+
+    root.mainloop()
+    rospy.spin()
+
+
+if __name__ == '__main__':
+    main()
