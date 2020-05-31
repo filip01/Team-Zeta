@@ -1,0 +1,212 @@
+#!/usr/bin/env python
+
+dfa = {0:{0:1}, 
+       1:{0:0, 1:2},
+       2:{0:2, 1:3},
+       3:{0:4, 1:10},
+       4:{0:4, 1:5},
+       5:{0:6},
+       6:{0:5, 1:7},
+       7:{0:7, 1:8},
+       8:{0:9, 1:15},
+       9:{0:9, 1:2},
+       10:{0:5, 1:11},
+       11:{0:12},
+       12:{0:12, 1:13},
+       13:{0:14},
+       14:{0:14,1:7},
+       15:{0:5, 1:16}}
+
+def interakcijaZObrazom():
+
+    global stanje
+
+    povezava = input("Povezava: ")
+
+    if(povezava == 0):
+        print("Pred tem obrazom smo prvic. Naredmo sliko in vprasamo katera je njena najljubsa barva.")
+        while(povezava == 0):
+            povezava = input("Povezava: ")
+            if(povezava == 0):
+                print("Barve nismo prepoznali, ponovimo vprasanje.")
+            elif(povezava == 1):
+                print("Barvo smo prepoznali, vpracamo se k Gargamelu.")
+                stanje = 2
+                priblizevanje()
+            else:
+                print("Napaka1")
+                break
+    elif(povezava == 1):
+        print("Pred tem obrazom smo drugic, pokazemo sliko Gargamela in vprasamo, ce bi se porocila.")
+        povezava = input("Povezava: ")
+        if(povezava == 0):
+            print("Obraz zavrnil poroko, poiscemo drugi obraz")
+            stanje = 5
+            raziskovanjeProstora()
+        elif(povezava == 1):
+            print("Obraz se strinjal s poroko.")
+            print("Naloga koncana!")
+        else:
+            print("Napaka2")
+
+def interakcijaZGargamelom():
+    
+    global stanje
+    global informacije
+
+    if(not informacije):
+        stanje = 4
+        informacije = True
+        print("Robot naredi sliko Gargamela.")
+        print("Robot vprasa Gargamela, kaksne zenske so mu vsec.")
+        povezava = 0
+        while(povezava == 0):
+            povezava = input("Povezava: ")
+            if(povezava == 1):
+                print("Robot je prepoznal informacije.")
+                stanje = 5
+                raziskovanjeProstora()
+            else:
+                print("Robot ni prepoznal informacija, ponovi vprasanje.")
+    else:
+        print("Pokazemo sliko Gargamelu in ga vprasamo, ce mu je vsec.")
+        povezava = input("Povezava: ")
+        if(povezava == 0):
+            print("Gargamelu ni vsec zenska, poiscemo novo.")
+            stanje = 5
+            raziskovanjeProstora()
+        elif(povezava == 1):
+            stanje = 11
+            raziskovanjeProstora()
+        else:
+            print("Napaka3")
+
+
+def priblizevanje():
+
+    global stanje
+    povezava = 0
+    
+    while(povezava == 0):
+        povezava = input("Povezava: ")
+        if(stanje == 2):
+            if(povezava == 0):
+                print("Robot se se ni priblizal Gargamelu.")
+            elif(povezava == 1):
+                print("Robot se je priblizal Gargamelu")
+                stanje = dfa.get(stanje).get(povezava)
+                interakcijaZGargamelom()
+        elif(stanje == 7):
+            if(povezava == 0):
+                print("Robot se se ni priblizal obrazu.")
+            elif(povezava == 1):
+                print("Robot se je priblizal obrazu")
+                stanje = dfa.get(stanje).get(povezava)
+                interakcijaZObrazom()
+        elif(stanje == 12):
+            if(povezava == 0):
+                print("Robot se se ni priblizal cilindru.")
+            elif(povezava == 1):
+                print("Robot se je priblizal cilindru.")
+                print("Robot z roko zagrabi prstan in ga vrze v cilinder.")
+                stanje = dfa.get(stanje).get(povezava)
+                raziskovanjeProstora()
+        elif(stanje == 14):
+            if(povezava == 0):
+                print("Robot se se ni priblizal prstanu.")
+            elif(povezava == 1):
+                print("Robot se je priblizal prstanu.")
+                print("Robot z roko zagrabi prstan. Vracamo se k obrazu.")
+                stanje = dfa.get(stanje).get(povezava)
+                priblizevanje()
+        else:
+            print("Napaka4.")
+            break
+
+
+
+def prepoznavaObraza():
+
+    global stanje
+    povezava = -1
+
+    print("Prepoznavanje obraza.")
+    if(stanje == 1):
+        povezava = input("Povezava: ")
+        if(povezava == 0):
+            print("Zaznani obraz ni Gargamel, nadaljujemo z iskanjem prostora.")
+            stanje = -1
+        elif(povezava == 1):
+            print("Zaznani obraz je Gargamel, priblizevanje Gargamelu.")
+            stanje = dfa.get(stanje).get(povezava)
+            priblizevanje()
+        else:
+            print("Napaka5")
+    elif(stanje == 6):
+        povezava = input("Povezava: ")
+        if(povezava == 0):
+            print("Zaznani obraz ne ustreza karektaristikam, nadaljujemo z iskanjem prostora.")
+            stanje = -1
+        elif(povezava == 1):
+            print("Zaznani obraz ustreza karektaristikam, priblizevanje obrazu.")
+            stanje = dfa.get(stanje).get(povezava)
+            priblizevanje()
+        else:
+            print("Napaka6")
+    else:
+        print("Napaka7")
+
+
+def raziskovanjeProstora():
+    
+    global stanje
+    povezava = -1
+
+    while(povezava == -1):
+        if(stanje == 0):
+            print("Robot raziskuje prostor, da bi nasel Gargamela.")
+            povezava = input("Povezava: ")
+            print("Obraz zaznan.")
+            stanje = dfa.get(stanje).get(povezava)
+            prepoznavaObraza()
+            if(stanje == -1):
+                stanje = 0
+                povezava = -1
+        elif(stanje == 5):
+            print("Robot raziskuje prostor, da bi nasel zensko.")
+            povezava = input("Povezava: ")
+            print("Obraz zaznan.")
+            stanje = dfa.get(stanje).get(povezava)
+            prepoznavaObraza()
+            if(stanje == -1):
+                stanje = 5
+                povezava = -1
+        elif(stanje == 11):
+            print("Robot raziskuje prostor, da bi nasel cilinder ustezne barve.")
+            stanje = 12
+            print("Zaznan cilinder prave barve.")
+            priblizevanje()
+            povezava = 0
+        elif(stanje ==13):
+            print("Robot raziskuje prostor, da bi nasel prstan ustrezne barve.")
+            stanje = 14
+            print("Zaznan prstan prave barve.")
+            povezava = 0
+            priblizevanje()
+        else:
+            print("Napaka8")
+            break
+
+def main():
+    
+    global stanje
+    stanje = 0
+
+    global informacije
+    informacije = False
+
+    raziskovanjeProstora()
+
+
+if __name__ == '__main__':
+    main()
