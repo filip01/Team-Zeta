@@ -43,7 +43,7 @@ class face_recognition:
         self.sock.listen()
 
         while True:
-            self.connection, self.client_address = sock.accept()
+            connection, client_address = sock.accept()
             print('Connected!')
 
             packets = []
@@ -57,4 +57,34 @@ class face_recognition:
             data = b"".join(packets)
             img_face, img_features = pickle.loads(data, encoding='latin1')
 
-    def get_embedding(self, img):
+            # perform recognition
+            face_id = self.recognition(self.face_model, img_face)
+            hair = self.recognition(self.hair_model, img_features)
+            length = self.recognition(self.length_model, img_features)
+
+            # pack results into a tuple
+            result = (face_id, hair, length)
+            data = pickle.dump(result, protocol=2)
+
+            # send result back
+            connection.send(data)
+
+            # close connection
+            connection.shutdown()
+            connection.close()
+
+    def get_embedding(self, img_cv):
+        # convert cv2 image to PIL Image
+        img = Image.fromarray(img_cv)
+
+        img = img.resize((160, 160))
+        img = ToTensor()(img)
+
+        # calculate embeddings
+        return resnet(img.unsqueeze(0))
+
+    def recognition(self, model, emb):
+        return model.predict(emb)
+
+if __name__ == '__main__':
+    face_recognition()

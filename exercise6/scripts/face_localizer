@@ -10,6 +10,9 @@ import numpy as np
 import tf2_geometry_msgs
 import tf2_ros
 import math
+import pickle
+import socket
+import os
 from std_msgs.msg import String
 #import matplotlib.pyplot as plt
 from sensor_msgs.msg import Image
@@ -18,7 +21,6 @@ from cv_bridge import CvBridge, CvBridgeError
 from visualization_msgs.msg import Marker, MarkerArray
 from std_msgs.msg import ColorRGBA
 from exercise4.msg import faces_info
-
 
 class face_localizer:
     def __init__(self):
@@ -61,6 +63,35 @@ class face_localizer:
         self.faces = faces_info()
         self.faces_pub = rospy.Publisher('faces_info', faces_info, queue_size=10)
 
+        path = os.environ['XDG_RUNTIME_DIR']
+        self.server_address = path + '/uds_socket'
+
+        # Create a UDS socket
+        self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+
+    def call_face_recognition(self, img_face, img_features):
+        # try to connect
+        print('connecting to', self.server_address)
+        try:
+            self.sock.connect(self.server_address)
+        except socket.error, msg:
+            print(msg)
+            sys.exit(1)
+
+        # send 2 images for face / hair + length recognition
+        print('Sending face')
+        face_and_features = (img_face, img_features)
+        data = pickle.dumps(face_and_features, protocol=2)
+        self.sock.sendall(data)
+        self.sock.send('End')
+
+        # recieve recognition result
+        result = self.sock.recv(4096)
+
+        # extract info from result
+        info = pickle.load(result, protocol=2)
+
+        return info
 
     def get_pose(self,coords,dist,stamp):
         # Calculate the position of the detected face
