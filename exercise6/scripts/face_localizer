@@ -214,7 +214,6 @@ class face_localizer:
         # Preprocessing
         gray = cv2.cvtColor(rgb_image, cv2.COLOR_BGR2GRAY)
         img = cv2.equalizeHist(gray)
-      
     
         image_scale = rgb_image.shape[1]
 
@@ -246,16 +245,19 @@ class face_localizer:
             y1d= y1 + dy
             y2d= y2 - dy
             
-
             # Extract region containing face
             #print(x1,x2,y1,y2)
             #print(x1d,x2d,y1d,y2d)
             face_region = rgb_image[y1:y2,x1:x2]
+
+            # Extract region for hair 
+            dh = int(h/3.5)
+            dw = int(w/3.5)
+            hair_region = rgb_image[y-dh:y+h+dh, x-dw:x+w+dw]
         
             # Visualize the extracted face
             #cv2.imshow("Depth window", face_region)
             #cv2.waitKey(1)
-
 
             # Find the distance to the detected face
             face_distance = float(np.nanmean(depth_image[y1d:y2d,x1d:x2d]))
@@ -302,9 +304,10 @@ class face_localizer:
                 self.faces.poses.append(pose)
                 self.faces.robotPoses.append(pose_2)
                 #TO DO: add other features
-                self.faces.hairColor.append("TODO")
-                self.faces.hairLength.append("TODO")
-                self.faces.ids.append(0) 
+                info = self.call_face_recognition(face_region, hair_region)
+                self.faces.ids.append(info[0]) 
+                self.faces.hairColor.append(info[1])
+                self.faces.hairLength.append(info[2])
                 self.faces.images.append(rgb_msg)
                 self.faces_pub.publish(self.faces)
 

@@ -9,6 +9,7 @@ from sklearn.metrics import plot_confusion_matrix
 from sklearn import preprocessing
 from torchvision.transforms import ToTensor
 from PIL import Image
+from joblib import dump
 
 # import pretrained model:
 from facenet_pytorch import InceptionResnetV1
@@ -70,3 +71,5 @@ plot_confusion_matrix(model, X_test, y_test)
 plt.show()
 
 # save model
+if input('Save model? (y/n)') == 'y':
+    dump(model, 'face_model.joblib')

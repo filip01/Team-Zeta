@@ -19,9 +19,11 @@ from facenet_pytorch import InceptionResnetV1
 class face_recognition:
     def __init__(self):
         self.resnet = InceptionResnetV1(pretrained='vggface2').eval()
-        self.face_model = load('todo')
-        self.hair_model = load('todo')
-        self.length_model = load('todo')
+
+        ml_path = os.path.dirname(os.path.realpath(__file__)) + '/ml_models/'
+        self.face_model = load(ml_path + 'face_model.joblib')
+        self.color_model = load(ml_path + 'hair_color_recog.joblib')
+        self.length_model = load(ml_path + 'hair_length_recog.joblib')
 
         path = os.environ['XDG_RUNTIME_DIR']
         server_address = path + '/uds_socket'
@@ -59,7 +61,7 @@ class face_recognition:
 
             # perform recognition
             face_id = self.recognition(self.face_model, img_face)
-            hair = self.recognition(self.hair_model, img_features)
+            color = self.recognition(self.color_model, img_features)
             length = self.recognition(self.length_model, img_features)
 
             # pack results into a tuple
