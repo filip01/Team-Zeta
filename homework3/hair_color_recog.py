@@ -111,9 +111,9 @@ def main():
     X_train = [f for f_t in faces_train for f in face_to_emb[f_t]]
     X_test = [f for f_t in faces_test for f in face_to_emb[f_t]]
 
-    y_train = [[face_to_hair.color[f]] * get_num_emb(f) for f in faces_train]
+    y_train = [[color_to_num(face_to_hair.color[f])] * get_num_emb(f) for f in faces_train]
     y_train = unnest_list(y_train)
-    y_test = [[face_to_hair.color[f]] * get_num_emb(f) for f in faces_test]
+    y_test = [[color_to_num(face_to_hair.color[f])] * get_num_emb(f) for f in faces_test]
     y_test = unnest_list(y_test)
 
     train_model(X_train, X_test, y_train, y_test, hair_colors, model_SVC, 'hair_color_recog')
