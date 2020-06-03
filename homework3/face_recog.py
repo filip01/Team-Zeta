@@ -28,7 +28,9 @@ y_train = []
 X_test = []
 y_test = []
 
-for f_c in face_classes:
+for i in range(0,21):
+    f_c = 'face_' + str(i)
+    print(f_c)
     training_path = path + 'training_data/' + f_c + '/*'
     for file in glob.glob(training_path):
         img = Image.open(file)
@@ -38,7 +40,7 @@ for f_c in face_classes:
         img_embedding = resnet(img.unsqueeze(0))
 
         X_train.append(img_embedding.detach().numpy().ravel())
-        y_train.append(f_c)
+        y_train.append(i)
 
     test_path = path + 'test_data/' + f_c + '/*'
     for file in glob.glob(test_path):
@@ -49,18 +51,13 @@ for f_c in face_classes:
         img_embedding = resnet(img.unsqueeze(0))
 
         X_test.append(img_embedding.detach().numpy().ravel())
-        y_test.append(f_c)
+        y_test.append(i)
 
 X_train = np.array(X_train)
 y_train = np.array(y_train)
 X_test = np.array(X_test)
 y_test = np.array(y_test)
 
-# convert labels to integers
-le = preprocessing.LabelEncoder()
-le.fit(face_classes)
-y_train = le.transform(y_train)
-y_test = le.transform(y_test)
 
 # train SVC on embeddings
 model = SVC(kernel='linear')
