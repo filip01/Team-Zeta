@@ -1,0 +1,791 @@
+#!/usr/bin/env python
+from __future__ import print_function
+from tf.transformations import quaternion_from_euler
+
+import sys
+import rospy
+import dlib
+import cv2
+import numpy as np
+import tf2_geometry_msgs
+import tf2_ros
+import math
+import cv2
+import actionlib
+import matplotlib.pyplot as plt
+
+from skimage.morphology import skeletonize
+from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal, MoveBaseActionResult
+from std_msgs.msg import String
+#import matplotlib.pyplot as plt
+from sensor_msgs.msg import Image
+from geometry_msgs.msg import PointStamped, Vector3, Pose, Twist, TransformStamped, PoseWithCovarianceStamped
+from cv_bridge import CvBridge, CvBridgeError
+from visualization_msgs.msg import Marker, MarkerArray
+from std_msgs.msg import ColorRGBA
+from nav_msgs.msg import OccupancyGrid
+from skimage.util import invert
+from exercise6.msg import objs_info
+from sound_play.libsoundplay import SoundClient
+from exercise4.msg import faces_info
+
+PI = 3.1415926535897 
+x_current = 247
+y_current = 260
+x_previous = 247
+y_previous = 260
+map_resolution = 0
+map_transform = TransformStamped()
+heigth = 0
+width = 0
+tf_buf = None
+tf_listener = None
+move_map= []
+rgb=[]
+
+arm_movement_pub = rospy.Publisher("/arm_command", String, queue_size=1)
+
+sides = {"east": 0, "north": PI/float(2), "west": PI, "south": float(1.5)*PI}
+
+dfa = {0:{0:1}, 
+       1:{0:0, 1:2},
+       2:{0:2, 1:3},
+       3:{0:4, 1:10},
+       4:{0:4, 1:5},
+       5:{0:6},
+       6:{0:5, 1:7},
+       7:{0:7, 1:8},
+       8:{0:9, 1:15},
+       9:{0:9, 1:2},
+       10:{0:5, 1:11},
+       11:{0:12},
+       12:{0:12, 1:13},
+       13:{0:14},
+       14:{0:14,1:7},
+       15:{0:5, 1:16}}
+
+#for publishing dialogue and bot beliefs
+belief_display_pub = rospy.Publisher("/belief_text", String, queue_size=3)
+dialogue_display_pub = rospy.Publisher("/conversation_text", String, queue_size=3)
+
+# type is an int: 0 means bot belief, 1 means its dialogue
+def display(text, type):
+
+    t = String()
+    t.data = text
+
+    if type == 0:
+        belief_display_pub.publish(t)
+    else:
+        dialogue_display_pub.publish(t)
+
+
+def interakcijaZObrazom():
+
+    global stanje
+
+    povezava = input("Povezava: ")
+
+    if(povezava == 0):
+        print("Pred tem obrazom smo prvic. Naredmo sliko in vprasamo katera je njena najljubsa barva.")
+        while(povezava == 0):
+            povezava = input("Povezava: ")
+            if(povezava == 0):
+                print("Barve nismo prepoznali, ponovimo vprasanje.")
+            elif(povezava == 1):
+                print("Barvo smo prepoznali, vpracamo se k Gargamelu.")
+                stanje = 2
+                priblizevanje()
+            else:
+                print("Napaka1")
+                break
+    elif(povezava == 1):
+        print("Pred tem obrazom smo drugic, pokazemo sliko Gargamela in vprasamo, ce bi se porocila.")
+        povezava = input("Povezava: ")
+        if(povezava == 0):
+            print("Obraz zavrnil poroko, poiscemo drugi obraz")
+            stanje = 5
+            raziskovanjeProstora()
+        elif(povezava == 1):
+            print("Obraz se strinjal s poroko.")
+            print("Naloga koncana!")
+        else:
+            print("Napaka2")
+
+def interakcijaZGargamelom():
+    
+    global stanje
+    global informacije
+
+    if(not informacije):
+        stanje = 4
+        informacije = True
+        print("Robot naredi sliko Gargamela.")
+        print("Robot vprasa Gargamela, kaksne zenske so mu vsec.")
+        povezava = 0
+        while(povezava == 0):
+            povezava = input("Povezava: ")
+            if(povezava == 1):
+                print("Robot je prepoznal informacije.")
+                stanje = 5
+                raziskovanjeProstora()
+            else:
+                print("Robot ni prepoznal informacija, ponovi vprasanje.")
+    else:
+        print("Pokazemo sliko Gargamelu in ga vprasamo, ce mu je vsec.")
+        povezava = input("Povezava: ")
+        if(povezava == 0):
+            print("Gargamelu ni vsec zenska, poiscemo novo.")
+            stanje = 5
+            raziskovanjeProstora()
+        elif(povezava == 1):
+            stanje = 11
+            raziskovanjeProstora()
+        else:
+            print("Napaka3")
+
+
+def priblizevanje():
+
+    global stanje
+    povezava = 0
+    
+    while(povezava == 0):
+        povezava = input("Povezava: ")
+        if(stanje == 2):
+            if(povezava == 0):
+                print("Robot se se ni priblizal Gargamelu.")
+            elif(povezava == 1):
+                print("Robot se je priblizal Gargamelu")
+                stanje = dfa.get(stanje).get(povezava)
+                interakcijaZGargamelom()
+        elif(stanje == 7):
+            if(povezava == 0):
+                print("Robot se se ni priblizal obrazu.")
+            elif(povezava == 1):
+                print("Robot se je priblizal obrazu")
+                stanje = dfa.get(stanje).get(povezava)
+                interakcijaZObrazom()
+        elif(stanje == 12):
+            if(povezava == 0):
+                print("Robot se se ni priblizal cilindru.")
+            elif(povezava == 1):
+                print("Robot se je priblizal cilindru.")
+                print("Robot z roko zagrabi prstan in ga vrze v cilinder.")
+                stanje = dfa.get(stanje).get(povezava)
+                raziskovanjeProstora()
+        elif(stanje == 14):
+            if(povezava == 0):
+                print("Robot se se ni priblizal prstanu.")
+            elif(povezava == 1):
+                print("Robot se je priblizal prstanu.")
+                print("Robot z roko zagrabi prstan. Vracamo se k obrazu.")
+                stanje = dfa.get(stanje).get(povezava)
+                priblizevanje()
+        else:
+            print("Napaka4.")
+            break
+
+
+
+def prepoznavaObraza():
+
+    global stanje
+    povezava = -1
+
+    print("Prepoznavanje obraza.")
+    if(stanje == 1):
+        povezava = input("Povezava: ")
+        if(povezava == 0):
+            print("Zaznani obraz ni Gargamel, nadaljujemo z iskanjem prostora.")
+            stanje = -1
+        elif(povezava == 1):
+            print("Zaznani obraz je Gargamel, priblizevanje Gargamelu.")
+            stanje = dfa.get(stanje).get(povezava)
+            priblizevanje()
+        else:
+            print("Napaka5")
+    elif(stanje == 6):
+        povezava = input("Povezava: ")
+        if(povezava == 0):
+            print("Zaznani obraz ne ustreza karektaristikam, nadaljujemo z iskanjem prostora.")
+            stanje = -1
+        elif(povezava == 1):
+            print("Zaznani obraz ustreza karektaristikam, priblizevanje obrazu.")
+            stanje = dfa.get(stanje).get(povezava)
+            priblizevanje()
+        else:
+            print("Napaka6")
+    else:
+        print("Napaka7")
+
+def move_bot(client, x,y, xPrev, yPrev):
+
+    global map_transform
+    global map_resolution
+
+    pt = PointStamped()
+    pt.point.x = x * map_resolution
+    pt.point.y = (heigth - y) * map_resolution
+    pt.point.z = 0.0
+
+    pose_transformed = tf2_geometry_msgs.do_transform_point(pt, map_transform)
+
+
+    ptPrev = PointStamped()
+    ptPrev.point.x = xPrev * map_resolution
+    ptPrev.point.y = (heigth - yPrev) * map_resolution
+    ptPrev.point.z = 0.0
+
+    pose_transformedPrev = tf2_geometry_msgs.do_transform_point(ptPrev, map_transform)
+
+    angle = np.arctan2((pose_transformed.point.y-pose_transformedPrev.point.y),(pose_transformed.point.x-pose_transformedPrev.point.x))
+
+
+    print("Sending to: ", pose_transformed.point.x, " ", pose_transformed.point.y, " angle: ", angle)
+
+   
+    q = quaternion_from_euler(0,0,angle)
+
+    
+    goal = MoveBaseGoal()
+    goal.target_pose.header.frame_id = "map"
+    goal.target_pose.header.stamp = rospy.Time.now()
+    goal.target_pose.pose.position.x = pose_transformed.point.x
+    goal.target_pose.pose.position.y = pose_transformed.point.y
+    goal.target_pose.pose.position.z = 0.0
+    goal.target_pose.pose.orientation.x = q[0]
+    goal.target_pose.pose.orientation.y = q[1]
+    goal.target_pose.pose.orientation.z = q[2]
+    goal.target_pose.pose.orientation.w = q[3]
+    client.send_goal(goal)        
+
+    wait = client.wait_for_result()
+    print(wait)
+
+    if not wait:
+        rospy.logerr("Action server not available!")
+        rospy.signal_shutdown("Action server not available!")
+    else:
+        result = client.get_result()
+        if result:
+
+            print("goal reached!") 
+            turnToWall(client,x,y)
+               
+        else:
+            print("big oof")  
+
+def turnToWall(client, x,y):
+
+    global move_map
+    global map_transform
+    global map_resolution
+
+    r=17
+
+    NE=0
+    NW=0
+    SE=0
+    SW=0
+
+    # north-east
+    for i in xrange(-r,0,1):
+        for j in xrange(0,r,1):       
+            
+            y2 = i + y
+            x2 = j + x
+
+            if move_map[y2][x2] == 100:
+                NE= NE+1
+                
+
+    # north-west
+    for i in xrange(-r,0,1):
+        for j in xrange(-r,0,1):
+            
+            y2 = i + y
+            x2 = j + x
+
+            if move_map[y2][x2] == 100:
+                NW = NW + 1
+               
+
+    # south-west        
+    for i in xrange(0,r,1):
+        for j in xrange(-r,0,1):
+            
+            y2 = i + y
+            x2 = j + x
+
+            if move_map[y2][x2] == 100:
+                SW = SW + 1
+                rgb[y2][x2][1] = 100
+
+    # south-east
+    for i in xrange(0,r,1):
+        for j in xrange(0,r,1):
+            
+            y2 = i + y
+            x2 = j + x
+
+            if move_map[y2][x2] == 100:
+                SE = SE + 1
+                
+
+    north= NE + NW
+    south = SE + SW
+    east = SE + NE
+    west = SW + NW
+
+    angle = 0 
+    angle2 = 0
+
+    winner = max(north, south, east, west)
+    winnerStr = ""
+    second = 0
+    secondStr = ""
+
+    # side with most walls
+    if(north == winner):
+        winnerStr = "north"
+        second = max(south, east, west)
+        angle= angle = sides.get(winnerStr)
+    elif(south == winner):
+        winnerStr = "south"
+        second = max(north, east, west)
+        angle = angle = sides.get(winnerStr)
+    elif( east == winner):
+        second = max(south, north, west)
+        winnerStr = "east"
+        angle = sides.get(winnerStr)
+    else:
+        second = max(south, north, east)
+        winnerStr = "west"
+        angle = sides.get(winnerStr)
+    
+    #second drafting
+    if(north == second):
+       secondStr = "north"
+       angle2= sides.get(secondStr)
+    elif(south == second):
+       secondStr = "south"
+       angle2 = sides.get(secondStr)
+    elif( east == second):
+       secondStr = "east"
+       angle2= sides.get(secondStr)
+    else:
+      secondStr = "west"
+      angle2 = sides.get(secondStr)
+      
+
+    pt = PointStamped()
+    pt.point.x = x * map_resolution
+    pt.point.y = (heigth - y) * map_resolution
+    pt.point.z = 0.0
+
+    pose_transformed = tf2_geometry_msgs.do_transform_point(pt, map_transform)
+
+    q = quaternion_from_euler(0,0,angle)
+
+    goal = MoveBaseGoal()
+    goal.target_pose.header.frame_id = "map"
+    goal.target_pose.header.stamp = rospy.Time.now()
+    goal.target_pose.pose.position.x = pose_transformed.point.x
+    goal.target_pose.pose.position.y = pose_transformed.point.y
+    goal.target_pose.pose.position.z = 0.0
+    goal.target_pose.pose.orientation.x = q[0]
+    goal.target_pose.pose.orientation.y = q[1]
+    goal.target_pose.pose.orientation.z = q[2]
+    goal.target_pose.pose.orientation.w = q[3]
+
+    client.send_goal(goal)
+    wait = client.wait_for_result()
+
+    if not wait:
+        rospy.logerr("Action server not available!")
+        rospy.signal_shutdown("Action server not available!")
+    else:
+        result = client.get_result()
+        if result:
+            print("turned to wall! ", winnerStr) 
+            q = quaternion_from_euler(0,0,angle2)
+            goal.target_pose.pose.orientation.x = q[0]
+            goal.target_pose.pose.orientation.y = q[1]
+            goal.target_pose.pose.orientation.z = q[2]
+            goal.target_pose.pose.orientation.w = q[3]
+
+            client.send_goal(goal)
+            wait = client.wait_for_result()
+            
+            if not wait:
+                rospy.logerr("Action server not available!")
+                rospy.signal_shutdown("Action server not available!")
+            else:
+                result = client.get_result()
+                if result:
+                    print("turned to second wall! ", secondStr) 
+                
+                else:
+                    print("big oof") 
+        
+        else:
+            print("big oof")  
+    
+    
+
+
+def rotate(twist_pub,angle):
+
+    vel_msg = Twist()
+    angular_speed = PI/3
+    relative_angle = angle * PI / 180
+    vel_msg.linear.x = 0
+    vel_msg.linear.y = 0
+    vel_msg.linear.z = 0
+    vel_msg.angular.x = 0
+    vel_msg.angular.y = 0
+    vel_msg.angular.z = abs(angular_speed)
+    t0 = rospy.Time.now().to_sec()
+    current_angle = 0
+    while(current_angle < relative_angle):
+        twist_pub.publish(vel_msg)
+        t1 = rospy.Time.now().to_sec()
+        current_angle = angular_speed*(t1-t0)
+    vel_msg.angular.z = 0
+    twist_pub.publish(vel_msg)
+    
+
+def next_goal(client, map, r, width, heigth):
+
+    max_d=0
+    goalx=0
+    goaly=0
+    global x_current 
+    global y_current
+    r2=15
+    r3=r2
+
+    for i in xrange(-r,r,1):
+       for j in xrange(-r,r,1):
+          
+           y = i + y_current
+           x = j + x_current
+
+           if map[y][x] == 1:
+
+                if i > -r2 and i < r2 and j > -r2 and j < r2:
+                    map[y][x] = 0
+                if euclidian_distance(x,y ,x_current, y_current) > max_d:
+
+                    max_d = euclidian_distance(x,y ,x_current, y_current)
+                    goalx= x
+                    goaly= y
+
+    if goalx == 0 and goaly == 0:
+
+        goals_count=0
+        min_d = 1000
+
+        for i in xrange(heigth):
+            for j in xrange(width): 
+
+               if map[i][j] == 1:
+                    goals_count= goals_count+1
+
+                    if euclidian_distance(j,i ,x_current, y_current) < min_d:
+                        
+                        min_d = euclidian_distance(j,i ,x_current, y_current)
+                        goalx= j
+                        goaly= i
+        if goals_count < 5:
+          print("space explored! ", goals_count)
+          goalx=-1
+        else:
+            print("break, number of goals: ",goals_count)
+            map[goaly][goalx] = 180  
+
+    else:
+        map[goaly][goalx] = 180
+              
+   
+            
+    
+    print(goalx, " ", goaly)
+    x_previous  = x_current
+    y_previous = y_current
+
+    x_current=goalx
+    y_current=goaly
+     
+
+    if goalx != -1:
+    
+     move_bot(client, x_current,y_current,x_previous, y_previous)
+
+    return  map
+           
+
+def euclidian_distance(x,y ,x2, y2):
+    return math.sqrt(math.pow(abs(x-x2),2) + math.pow(abs(y-y2),2))
+
+def calculateFaceApproach(faces_info, image, skeleton):
+    global heigth
+    global width
+    global map_resolution
+    global map_transform
+    print('Face pose: ', faces_info)
+    markers_pub = rospy.Publisher('face_marker', Marker, queue_size=1000)
+    
+    min_d=1000
+    xgoal=0
+    ygoal=0
+    x = faces_info.position.x
+    y = faces_info.position.y
+
+    bridge = CvBridge()
+    try:
+        rgb_image = bridge.imgmsg_to_cv2(image, "bgr8")
+    except CvBridgeError as e:
+        print(e)
+
+    #find nearest possible goal on the skeleton
+    for i in xrange(heigth):
+        for j in xrange(width):
+            if skeleton[i][j] == 1:
+
+                pt = PointStamped()
+                pt.point.x = j * map_resolution
+                pt.point.y = (heigth - i) * map_resolution
+                pt.point.z = 0.0
+
+                pose_transformed = tf2_geometry_msgs.do_transform_point(pt, map_transform)
+
+
+                x2=pose_transformed.point.x
+                y2=pose_transformed.point.y
+
+                if  euclidian_distance(x,y,x2,y2) < min_d and  euclidian_distance(x2,y2, faces_info.position.x, faces_info.position.y) < 0.36:
+                    min_d = euclidian_distance(x,y,x2,y2)
+                    xgoal = x2
+                    ygoal = y2
+
+
+    angle = np.arctan2((y-ygoal),(x-xgoal))
+
+    q = quaternion_from_euler(0,0,angle)
+
+    newPose = Pose()
+    newPose.position.x = x
+    newPose.position.y = y
+    newPose.position.z = 0.0
+    newPose.orientation.x = q[0]
+    newPose.orientation.y = q[1]
+    newPose.orientation.z = q[2]
+    newPose.orientation.w = q[3]
+
+
+    marker = Marker()
+    marker.header.stamp = rospy.Time(30)
+    marker.header.frame_id = 'map'
+    marker.pose = newPose
+    marker.type = Marker.ARROW
+    marker.action = Marker.ADD
+    marker.frame_locked = False
+    marker.lifetime = rospy.Duration.from_sec(0)
+    marker.id = lastFace
+    marker.scale = Vector3(0.1, 0.1, 0.1)
+    marker.color = ColorRGBA(1, 0, 0, 1)
+    
+    markers_pub.publish(marker)
+    return newPose
+
+def raziskovanjeProstora():
+    
+    print("Raziskovanje prostora.")
+
+    global width
+    global heigth
+    global map_transform
+    global map_resolution
+    global move_map
+    global rgb
+    global rinfo
+    global rings
+    global cylinders
+    global faces
+    global lastFace
+    faces = {'init' : 0}
+    cylinders = {'init': 0}
+    rings = {'init': 0}
+    lastRing = 0
+    lastFace = 0
+    soundhandle = SoundClient()
+
+    try:
+        map = rospy.wait_for_message("map", OccupancyGrid)
+    except Exception as e:
+        print(e)
+
+    width=map.info.width
+    heigth=map.info.height
+
+    
+    print(map.info)    
+    cv_map = np.zeros((heigth,width))
+    mask = np.zeros((heigth,width))
+    walls = np.zeros((heigth,width))
+    move_map = np.zeros((heigth,width))
+    rgb = np.zeros((heigth,width,3))
+
+    print(cv_map.shape)
+    
+    map_resolution = map.info.resolution
+
+    map_transform = TransformStamped()
+    map_transform.transform.translation.x = map.info.origin.position.x
+    map_transform.transform.translation.y = map.info.origin.position.y
+    map_transform.transform.translation.z = map.info.origin.position.z
+    map_transform.transform.rotation = map.info.origin.orientation
+  
+  
+    x=0
+    for i in xrange(heigth-1,-1,-1):
+        for j in xrange(width):
+            
+            
+            if map.data[x] == -1 : 
+             cv_map[i][j] = 0
+             mask[i][j] = 1
+           
+            if map.data[x] == 0 :
+             cv_map[i][j] = 0
+            
+
+            if map.data[x] == 100 : 
+             cv_map[i][j] = 1
+             walls[i][j] = 1
+            
+            x=x+1
+
+
+
+    kernel = np.ones((10,10),np.uint8)
+    dilatedOriginal = cv2.dilate(cv_map, kernel ,iterations = 1)
+
+    dilated = invert(dilatedOriginal)
+ 
+    skeleton = skeletonize(dilated)
+
+    for i in xrange(heigth):
+        for j in xrange(width):
+            
+          if mask[i][j]  == 1:
+            skeleton[i][j] = 0
+    
+    for i in range(heigth):
+        for j in range(width):
+            if skeleton[i][j] == 1:
+                rgb[i][j][1] = 150
+                move_map[i][j] = 1
+
+            if mask[i][j] == 1:
+               rgb[i][j][2] = 150
+               move_map[i][j] = 170
+
+            if walls[i][j] == 1:
+               rgb[i][j][0] = 150
+               move_map[i][j] = 100
+
+    client = actionlib.SimpleActionClient('move_base',MoveBaseAction)
+    client.wait_for_server()
+    
+    move_bot(client, x_current,y_current, x_previous, y_previous)
+    
+    rings_info = objs_info()
+    rings_info.poses, rings_info.colors = [], []
+
+    cylinders_info = objs_info()
+    cylinders_info.poses, cylinders_info.colors = [], []
+    
+
+    
+    while x_current != -1:
+        move_map= next_goal(client, move_map,20,width,heigth)
+        try:   
+            rinfo = rospy.wait_for_message("rings_info", objs_info)
+        except Exception as e:
+            print(e)
+
+        for i in range(lastRing, len(rinfo.colors)):
+            lastRing += 1
+            rings[rinfo.colors[i]] = rinfo.poses[i]
+   
+        try:
+            facesInfo = rospy.wait_for_message("faces_info", faces_info)
+        except Exception as e:
+            print(e)
+        
+        for i in range(lastFace, len(facesInfo.poses)):
+            lastFace += 1
+            calculateFaceApproach(facesInfo.poses[i], facesInfo.images[i], skeleton)  
+             
+        
+        '''
+        try:
+            cinfo = rospy.wait_for_message("cylinders_info", objs_info)
+        except Exception as e:
+            print(e)
+        print(cinfo)
+        '''
+    print(rings)
+ 
+
+    plt.close()
+    fig, axes = plt.subplots(1, 5, figsize=(8, 4), sharex=True, sharey=True)
+    ax = axes.ravel()
+
+    ax[0].imshow(dilatedOriginal, cmap=plt.cm.gray)
+    ax[0].set_title('dilated')
+    ax[0].axis('off')
+
+    ax[1].imshow(skeleton, cmap=plt.cm.gray)
+    ax[1].set_title('skeletonized')
+    ax[1].axis('off')
+
+    ax[2].imshow(cv_map, cmap=plt.cm.gray)
+    ax[2].set_title('original')
+    ax[2].axis('off')
+
+    ax[3].imshow(rgb, cmap=plt.cm.gray)
+    ax[3].set_title('rgb representation')
+    ax[3].axis('off')
+
+    ax[4].imshow(move_map, cmap=plt.cm.gray)
+    ax[4].set_title('moved')
+    ax[4].axis('off')
+
+    fig.tight_layout()
+    plt.show()
+
+    pt = PointStamped()
+    pt.point.x = x_current * map_resolution
+    pt.point.y = (heigth - y_current) * map_resolution
+    pt.point.z = 0.0
+
+    pose_transformed = tf2_geometry_msgs.do_transform_point(pt, map_transform)
+
+
+def main():
+    rospy.init_node("DFA")
+    global stanje
+    stanje = 0
+
+    global informacije
+    informacije = False
+
+    raziskovanjeProstora()
+    rospy.spin()
+
+if __name__ == '__main__':
+    main()
