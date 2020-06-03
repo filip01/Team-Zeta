@@ -68,6 +68,14 @@ dfa = {0:{0:1},
 belief_display_pub = rospy.Publisher("/belief_text", String, queue_size=3)
 dialogue_display_pub = rospy.Publisher("/conversation_text", String, queue_size=3)
 
+class Face:
+  def __init__(haircolor, hairlength, id, pose, img):
+    self.haircolor = haircolor
+    self.hairlength = hairlength
+    self.id = id
+    self.pose = pose
+    self.img = img
+
 # type is an int: 0 means bot belief, 1 means its dialogue
 def display(text, type):
 
@@ -529,77 +537,6 @@ def next_goal(client, map, r, width, heigth):
 def euclidian_distance(x,y ,x2, y2):
     return math.sqrt(math.pow(abs(x-x2),2) + math.pow(abs(y-y2),2))
 
-def calculateFaceApproach(faces_info, image, skeleton):
-    global heigth
-    global width
-    global map_resolution
-    global map_transform
-    print('Face pose: ', faces_info)
-    markers_pub = rospy.Publisher('face_marker', Marker, queue_size=1000)
-    
-    min_d=1000
-    xgoal=0
-    ygoal=0
-    x = faces_info.position.x
-    y = faces_info.position.y
-
-    bridge = CvBridge()
-    try:
-        rgb_image = bridge.imgmsg_to_cv2(image, "bgr8")
-    except CvBridgeError as e:
-        print(e)
-
-    #find nearest possible goal on the skeleton
-    for i in xrange(heigth):
-        for j in xrange(width):
-            if skeleton[i][j] == 1:
-
-                pt = PointStamped()
-                pt.point.x = j * map_resolution
-                pt.point.y = (heigth - i) * map_resolution
-                pt.point.z = 0.0
-
-                pose_transformed = tf2_geometry_msgs.do_transform_point(pt, map_transform)
-
-
-                x2=pose_transformed.point.x
-                y2=pose_transformed.point.y
-
-                if  euclidian_distance(x,y,x2,y2) < min_d and  euclidian_distance(x2,y2, faces_info.position.x, faces_info.position.y) < 0.36:
-                    min_d = euclidian_distance(x,y,x2,y2)
-                    xgoal = x2
-                    ygoal = y2
-
-
-    angle = np.arctan2((y-ygoal),(x-xgoal))
-
-    q = quaternion_from_euler(0,0,angle)
-
-    newPose = Pose()
-    newPose.position.x = x
-    newPose.position.y = y
-    newPose.position.z = 0.0
-    newPose.orientation.x = q[0]
-    newPose.orientation.y = q[1]
-    newPose.orientation.z = q[2]
-    newPose.orientation.w = q[3]
-
-
-    marker = Marker()
-    marker.header.stamp = rospy.Time(30)
-    marker.header.frame_id = 'map'
-    marker.pose = newPose
-    marker.type = Marker.ARROW
-    marker.action = Marker.ADD
-    marker.frame_locked = False
-    marker.lifetime = rospy.Duration.from_sec(0)
-    marker.id = lastFace
-    marker.scale = Vector3(0.1, 0.1, 0.1)
-    marker.color = ColorRGBA(1, 0, 0, 1)
-    
-    markers_pub.publish(marker)
-    return newPose
-
 def calculate_cylinder_approach_pos(x,y, xBot, yBot):
 
     dx = xBot - x
@@ -675,7 +612,54 @@ def calculate_rings_approach_pos( x,y, skeleton):
 
     return [distance, pose]
 
+def calculate_face_approach_pos(x,y, robotx, roboty, skeleton, client):
+    global heigth
+    global width
+    global map_resolution
+    global map_transform
+     
+    min_d=1000
+    xgoal=0
+    ygoal=0
 
+    #find nearest possible goal on the skeleton
+    for i in xrange(heigth):
+        for j in xrange(width):
+            if skeleton[i][j] == 1:
+
+                pt = PointStamped()
+                pt.point.x = j * map_resolution
+                pt.point.y = (heigth - i) * map_resolution
+                pt.point.z = 0.0
+
+                pose_transformed = tf2_geometry_msgs.do_transform_point(pt, map_transform)
+
+
+                x2=pose_transformed.point.x
+                y2=pose_transformed.point.y
+
+                if  euclidian_distance(x,y,x2,y2) < min_d and  euclidian_distance(x2,y2, robotx, roboty) < 0.36:
+                    min_d = euclidian_distance(x,y,x2,y2)
+                    xgoal = x2
+                    ygoal = y2
+
+    angle = np.arctan2((y-ygoal),(x-xgoal))
+
+    q = quaternion_from_euler(0,0,angle)
+
+    pose= Pose()
+    pose.position.x = xgoal
+    pose.position.y = ygoal
+    pose.position.z = 0.0
+    pose.orientation.x = q[0]
+    pose.orientation.y = q[1]
+    pose.orientation.z = q[2]
+    pose.orientation.w = q[3]
+
+    return pose
+
+
+         
 def raziskovanjeProstora():
     
     print("Raziskovanje prostora.")
@@ -690,10 +674,12 @@ def raziskovanjeProstora():
     global rings
     global cylinders
     global faces
+    global gargamel
     global ringsDistances
     global lastFace
 
-    faces = {'init' : 0}
+    gargamel = {}
+    faces =  []
     cylinders = {'init': 0}
     rings = {'init': 0}
     ringsDistances = {'init': 0}
@@ -813,7 +799,7 @@ def raziskovanjeProstora():
         for i in range(lastCylinder, len(cinfo.poses)):
             lastCylinder += 1
             cylinders[cinfo.colors[i]] = calculate_cylinder_approach_pos(cinfo.poses[i].position.x,cinfo.poses[i].position.y, cinfo.robot_point_stamped[i].point.x, cinfo.robot_point_stamped[i].point.y) 
-
+        #face approach position
         try:
             facesInfo = rospy.wait_for_message("faces_info", faces_info)
         except Exception as e:
@@ -821,7 +807,13 @@ def raziskovanjeProstora():
         
         for i in range(lastFace, len(facesInfo.poses)):
             lastFace += 1
-            calculateFaceApproach(facesInfo.poses[i], facesInfo.images[i], skeleton)  
+            facePos = calculate_face_approach_pos(faces_info.poses[i].position.x,faces_info.poses[i].position.y, faces_info.robotPoses[i].position.x, faces_info.robotPoses[i].position.y, skeleton)
+            
+            if facesInfo.ids[i] == 0: 
+                gargamel = facePos
+            else : 
+                face = Face(facesInfo.hairColor[i], facesInfo.hairLength[i], facesInfo.ids[i], facePos,facesInfo.images[i])
+                faces.append(face)
              
         
         
