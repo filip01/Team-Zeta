@@ -44,37 +44,38 @@ class face_recognition:
         # Listen for incoming connections
         self.sock.listen()
 
-        while True:
-            connection, client_address = self.sock.accept()
-            print('Connected!')
+        connection, client_address = self.sock.accept()
+        print('Connected!')
 
-            packets = []
+        try:
             while True:
-                packet = connection.recv(4096)
-                if packet[-3:] == b'End':
-                    packets.append(packet[:-3])
-                    break
-                packets.append(packet)
+                # reconstruct data
+                packets = []
+                while True:
+                    packet = connection.recv(4096)
+                    if packet[-3:] == b'End':
+                        packets.append(packet[:-3])
+                        break
+                    packets.append(packet)
 
-            data = b"".join(packets)
-            img_face, img_features = pickle.loads(data, encoding='latin1')
-            face_emb = self.get_embedding(img_face)
-            feature_emb = self.get_embedding(img_features)
+                data = b"".join(packets)
+                img_face, img_features = pickle.loads(data, encoding='latin1')
 
-            # perform recognition
-            face_id = self.recognition(self.face_model, face_emb)
-            color = self.recognition(self.color_model, feature_emb)
-            length = self.recognition(self.length_model, feature_emb)
+                face_emb = self.get_embedding(img_face)
+                feature_emb = self.get_embedding(img_features)
 
-            # pack results into a list
-            result = [face_id[0], color[0], length[0]]
-            data = str.encode(' '.join(str(x) for x in result))
+                # perform recognition
+                face_id = self.recognition(self.face_model, face_emb)
+                color = self.recognition(self.color_model, feature_emb)
+                length = self.recognition(self.length_model, feature_emb)
 
-            # send result back
-            connection.send(data)
+                # pack results into a list
+                result = [face_id[0], color[0], length[0]]
+                data = str.encode(' '.join(str(x) for x in result))
 
-            # close connection
-            # connection.shutdown()
+                # send result back
+                connection.send(data)
+        finally:
             connection.close()
 
     def get_embedding(self, img_cv):
