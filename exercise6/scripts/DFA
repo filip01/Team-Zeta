@@ -44,6 +44,7 @@ move_map= []
 rgb=[]
 
 arm_movement_pub = rospy.Publisher("/arm_command", String, queue_size=1)
+twist_pub = rospy.Publisher('/mobile_base/commands/velocity', Twist, queue_size=10)
 
 sides = {"east": 0, "north": PI/float(2), "west": PI, "south": float(1.5)*PI}
 
@@ -77,12 +78,12 @@ class Face:
     self.img = img
 
 # type is an int: 0 means bot belief, 1 means its dialogue
-def display(text, type):
+def display(text, text_type):
 
     t = String()
     t.data = text
 
-    if type == 0:
+    if text_type == 0:
         belief_display_pub.publish(t)
     else:
         dialogue_display_pub.publish(t)
@@ -469,26 +470,6 @@ def turnToWall(client, x,y):
     
     
 
-
-def rotate(twist_pub,angle):
-
-    vel_msg = Twist()
-    angular_speed = PI/3
-    relative_angle = angle * PI / 180
-    vel_msg.linear.x = 0
-    vel_msg.linear.y = 0
-    vel_msg.linear.z = 0
-    vel_msg.angular.x = 0
-    vel_msg.angular.y = 0
-    vel_msg.angular.z = abs(angular_speed)
-    t0 = rospy.Time.now().to_sec()
-    current_angle = 0
-    while(current_angle < relative_angle):
-        twist_pub.publish(vel_msg)
-        t1 = rospy.Time.now().to_sec()
-        current_angle = angular_speed*(t1-t0)
-    vel_msg.angular.z = 0
-    twist_pub.publish(vel_msg)
     
 
 def next_goal(client, map, r, width, heigth):
@@ -587,7 +568,115 @@ def calculate_cylinder_approach_pos(x,y, xBot, yBot):
     pose.orientation.w = q[3]
 
     return pose
- 
+
+def approachCylinder(color):
+
+    global twist_pub
+    print("Approaching the cylinder")
+    display("Approaching cylinder.",0)
+
+    goal = MoveBaseGoal()
+    goal.target_pose.header.frame_id = "map"
+    goal.target_pose.header.stamp = rospy.Time.now()
+    goal.target_pose.pose = cylinders.get(color)
+
+    client.send_goal(goal)
+
+    wait = client.wait_for_result()
+
+    if not wait:
+        rospy.logerr("Action server not available!")
+        rospy.signal_shutdown("Action server not available!")
+    else:
+
+        distance = 0.5
+
+        rate = rospy.Rate(10)
+
+        vel_msg = Twist()
+        vel_msg.linear.x = speed
+        vel_msg.linear.y = 0
+        vel_msg.linear.z = 0
+        vel_msg.angular.x = 0
+        vel_msg.angular.y = 0
+        vel_msg.angular.z = 0
+
+        t0 = rospy.Time.now().to_sec()
+        current_distance = 0
+        #Loop to move the turtle in an specified distance
+        while(current_distance < distance):
+            #Publish the velocity
+            twist_pub.publish(vel_msg)
+            #Takes actual time to velocity calculus
+            t1=rospy.Time.now().to_sec()            
+            #Calculates distancePoseStamped
+            current_distance= speed*(t1-t0)
+            rate.sleep()
+
+        #After the loop, stops the robot
+        vel_msg.linear.x = 0
+        #Force the robot to stop
+        twist_pub.publish(vel_msg)
+
+        print("Approached cylinder.")
+        display("Approached cylinder.", 0)
+        
+        msg = String()
+        msg.data = "extend"
+
+        arm_movement_pub.publish(msg)
+        rospy.sleep(2)
+
+        msg.data = "retract"
+        arm_movement_pub.publish(msg)
+        rospy.sleep(2)
+        
+        print("ROTATING")
+        rotate(180)
+
+        print("MOVING BACK")
+
+        t0 = rospy.Time.now().to_sec()
+        current_distance = 0
+        vel_msg.linear.x = speed
+
+        #Loop to move the turtle in an specified distance
+        while(current_distance < distance):
+            #Publish the velocity
+            twist_pub.publish(vel_msg)
+            #Takes actual time to velocity calculus
+            t1=rospy.Time.now().to_sec()            
+            #Calculates distancePoseStamped
+            current_distance= speed*(t1-t0)
+            rate.sleep()
+
+        #After the loop, stops the robot
+        vel_msg.linear.x = 0
+        #Force the robot to stop
+        twist_pub.publish(vel_msg) 
+     
+def rotate(angle):
+
+    global twist_pub
+
+    vel_msg = Twist()
+    angular_speed = 60*2*PI/360
+    relative_angle = angle * PI / 180
+    vel_msg.linear.x = 0
+    vel_msg.linear.y = 0
+    vel_msg.linear.z = 0
+    vel_msg.angular.x = 0
+    vel_msg.angular.y = 0
+    vel_msg.angular.z = abs(angular_speed)
+    t0 = rospy.Time.now().to_sec()
+    current_angle = 0
+    while(current_angle < relative_angle):
+        twist_pub.publish(vel_msg)
+        t1 = rospy.Time.now().to_sec()
+        current_angle = angular_speed*(t1-t0)
+    vel_msg.angular.z = 0
+    twist_pub.publish(vel_msg)
+       
 def calculate_rings_approach_pos( x,y, skeleton):
 
     global map_transform
@@ -779,22 +868,119 @@ def najdiGargamela():
                 print(e)
 
             display("ROBOT: What kind of women do you preffer?", 1)
-            type = speechRecog("gargamelWomen")
-            findGargamelsWoman(type)
+            womanType = speechRecog("gargamelWomen")
+            findGargamelsWoman(womanType)
             
 
 
         else:
             print("big oof")  
 
-def findGargamelsWoman(type):
+def approach_ring(color):
+    global rings
+    global client
+    global ringsDistances
+    global twist_pub
+
+    ring_approach_pose = rings[color]
+    ring_distance= ringsDistances[color]
+
+    goal = MoveBaseGoal()
+    goal.target_pose.header.frame_id = "map"
+    goal.target_pose.header.stamp = rospy.Time.now()
+    goal.target_pose.pose = ring_approach_pose
+
+
+    client.send_goal(goal)
+    wait = client.wait_for_result()
+
+    if not wait:
+        rospy.logerr("Action server not available!")
+        rospy.signal_shutdown("Action server not available!")
+    else:
+        result = client.get_result()
+        if result:
+            #FINE APPROACH
+            print("ring reached!") 
+            display("closing in on ring", 1)
+            distance = ring_distance
+            speed=0.1
+
+            rate = rospy.Rate(10)
+
+            vel_msg = Twist()
+            vel_msg.linear.x = speed
+            vel_msg.linear.y = 0
+            vel_msg.linear.z = 0
+            vel_msg.angular.x = 0
+            vel_msg.angular.y = 0
+            vel_msg.angular.z = 0
+
+            t0 = rospy.Time.now().to_sec()
+            current_distance = 0
+            #Loop to move the turtle in an specified distance
+            while(current_distance < distance):
+                #Publish the velocity
+                twist_pub.publish(vel_msg)
+                #Takes actual time to velocity calculus
+                t1=rospy.Time.now().to_sec()            
+                #Calculates distancePoseStamped
+                current_distance= speed*(t1-t0)
+                rate.sleep()
+
+            #After the loop, stops the robot
+            vel_msg.linear.x = 0
+            #Force the robot to stop
+            twist_pub.publish(vel_msg)
+
+            ''' TODO move arm
+            msg = String()
+            msg.data = "extend"
+
+            arm_movement_pub.publish(msg)
+            rospy.sleep(2)
+
+            msg.data = "retract"
+            arm_movement_pub.publish(msg)
+            rospy.sleep(2)
+            '''
+            display("ring grabbed", 1)
+            print("ROTATING")
+            rotate(180)
+
+            print("MOVING BACK")
+
+            t0 = rospy.Time.now().to_sec()
+            current_distance = 0
+            vel_msg.linear.x = speed
+
+            #Loop to move the turtle in an specified distance
+            while(current_distance < distance):
+                #Publish the velocity
+                twist_pub.publish(vel_msg)
+                #Takes actual time to velocity calculus
+                t1=rospy.Time.now().to_sec()            
+                #Calculates distancePoseStamped
+                current_distance= speed*(t1-t0)
+                rate.sleep()
+
+            #After the loop, stops the robot
+            vel_msg.linear.x = 0
+            #Force the robot to stop
+            twist_pub.publish(vel_msg)
+            
+          
+        else:
+            print("big oof")  
+
+def findGargamelsWoman(womanType):
     global faces 
     global currentCandidates
 
-    print("TYPE :", type)
-    type = type.split(" ")
-    hcolor = type[2]
-    hlength = type[3]
+    print("TYPE :", womanType)
+    womanType = womanType.split(" ")
+    hcolor = womanType[2]
+    hlength = womanType[3]
     currentCandidates = []
 
     #ugly but whatever
