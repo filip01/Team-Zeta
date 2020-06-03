@@ -227,6 +227,33 @@ def prepoznavaObraza():
     else:
         print("Napaka7")
 
+def move_to_pose(client, to_pose):
+    global map_transform
+    global map_resolution
+
+    print("Sending to: ", to_pose.point.x, " ", to_pose.point.y, " angle: ", angle)
+
+    q = quaternion_from_euler(0,0,angle)
+    
+    goal = MoveBaseGoal()
+    goal.target_pose.header.frame_id = "map"
+    goal.target_pose.header.stamp = rospy.Time.now()
+    goal.target_pose.pose = to_pose
+    client.send_goal(goal)
+
+    wait = client.wait_for_result()
+    print(wait)
+
+    if not wait:
+        rospy.logerr("Action server not available!")
+        rospy.signal_shutdown("Action server not available!")
+    else:
+        result = client.get_result()
+        if result:
+            return result
+        else:
+            print("big oof")
+
 def move_bot(client, x,y, xPrev, yPrev):
 
     global map_transform
@@ -675,13 +702,26 @@ def speechRecog(question):
 
         if question == "gargamelWomen":
             gargamel = "Gargamel: " + recognized.data
-            str = "Robot : I heard: " + recognized.data + " Is that correct?"
+            str_ = "Robot : I heard: " + recognized.data + " Is that correct?"
             display(gargamel, 1)
-            display(str, 1)
+            display(str_, 1)
             output = recognized.data
             if recognized.data.split(" ")[0] != "women":
                 display("Robot: I didnt expect that answer, Please repeat that..",1)
                 continue
+        elif question == 'favColor':
+            woman = "Woman: " + recognized.data
+            str_ = "Robot : I heard: " + recognized.data + " Is that correct?"
+            fav_color = recognized.data[4]
+            display(gargamel, 1)
+            display(str_, 1)
+            output = fav_color
+        elif question == 'gargColor':
+            gargamel = "Gargamel: " + recognized.data
+            str_ = "Robot : I heard: " + recognized.data + " Is that correct?"
+            display(gargamel, 1)
+            display(str_, 1)
+            output = recognized.data
         
         try:
             recognized = rospy.wait_for_message("/recognizer/output", String)
@@ -780,17 +820,33 @@ def findGargamelsWoman(type):
         display("No such woman detected D:", 1)
     else:
         display("Approaching a match",0)
-        approachMatch
+        approachMatch()
         
+def approachMatch():
+    global currentCandidates
+    global married
+    # TO DO: pojdi do zenske jo vprasaj za barvo, nazaj do gargamela ga vprasaj ce mu je vsec
+    # JA: nadaljuj s cilindri in obroci
+    # NE: odstrani zensko iz currentMatches in nadaljuj z naslednjo, ce naslednje ni nbe naredi nic
+    # bo sel robot nazaj do gargamela in ga spet sprasval
+    candiate = currentCandidates[0]
 
-def approachMach():
+    move_to_pose(candidate.pose)
 
-  global currrentCandidates
-  # TO DO: pojdi do zenske jo vprasaj za barvo, nazaj do gargamela ga vprasaj ce mu je vsec
-  # JA: nadaljuj s cilindri in obroci
-  # NE: odstrani zensko iz currentMatches in nadaljuj z naslednjo, ce naslednje ni nbe naredi nic
-  # bo sel robot nazaj do gargamela in ga spet sprasval
+    display("ROBOT: What is your favourite color?", 1)
+    favColor = speechRecog("favColor")
 
+    najdiGargamela()
+
+    display("ROBOT: Do you like the color " + favColor + "?", 1)
+    gargColor = speechRecog("gargColor")
+
+    if gargColor == 'yes':
+        # call other stuff
+        married = True
+    else
+        currentCandidates.pop(0)
+        approachMatch()
 
 def raziskovanjeProstora():
     
