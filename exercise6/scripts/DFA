@@ -44,6 +44,7 @@ move_map= []
 rgb=[]
 
 arm_movement_pub = rospy.Publisher("/arm_command", String, queue_size=1)
+twist_pub = rospy.Publisher('/mobile_base/commands/velocity', Twist, queue_size=10)
 
 sides = {"east": 0, "north": PI/float(2), "west": PI, "south": float(1.5)*PI}
 
@@ -442,26 +443,6 @@ def turnToWall(client, x,y):
     
     
 
-
-def rotate(twist_pub,angle):
-
-    vel_msg = Twist()
-    angular_speed = PI/3
-    relative_angle = angle * PI / 180
-    vel_msg.linear.x = 0
-    vel_msg.linear.y = 0
-    vel_msg.linear.z = 0
-    vel_msg.angular.x = 0
-    vel_msg.angular.y = 0
-    vel_msg.angular.z = abs(angular_speed)
-    t0 = rospy.Time.now().to_sec()
-    current_angle = 0
-    while(current_angle < relative_angle):
-        twist_pub.publish(vel_msg)
-        t1 = rospy.Time.now().to_sec()
-        current_angle = angular_speed*(t1-t0)
-    vel_msg.angular.z = 0
-    twist_pub.publish(vel_msg)
     
 
 def next_goal(client, map, r, width, heigth):
@@ -624,7 +605,7 @@ def approachCylinder(color):
         rospy.sleep(2)
         
         print("ROTATING")
-        rotate(twist_pub,180)
+        rotate(180)
 
         print("MOVING BACK")
 
@@ -861,8 +842,6 @@ def approach_ring(color):
     global ringsDistances
     global twist_pub
 
-    twist_pub = rospy.Publisher('/mobile_base/commands/velocity', Twist, queue_size=10)
-
     ring_approach_pose = rings[color]
     ring_distance= ringsDistances[color]
 
@@ -927,7 +906,7 @@ def approach_ring(color):
             '''
             display("ring grabbed", 1)
             print("ROTATING")
-            rotate(twist_pub,180)
+            rotate(180)
 
             print("MOVING BACK")
 
