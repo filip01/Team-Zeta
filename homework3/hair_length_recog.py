@@ -30,13 +30,8 @@ def train_model(X_train, X_test, y_train, y_test, classes, model, model_name):
     X_test = np.array(X_test)
     y_test = np.array(y_test)
 
-    # convert labels to integers
-    le = preprocessing.LabelEncoder()
-    le.fit(classes)
-    y_train = le.transform(y_train)
-    y_test = le.transform(y_test)
     model.fit(X_train, y_train)
-
+    
     # test SVC + plot confusion matrix
     plot_confusion_matrix(model, X_test, y_test)
     plt.show()
@@ -48,6 +43,7 @@ def train_model(X_train, X_test, y_train, y_test, classes, model, model_name):
 def main():
     # claases
     hair_lengths = ['short', 'long']
+    length_to_num = lambda l: hair_lengths.index(l)
 
     # load pretrained face recognition model
     resnet = InceptionResnetV1(pretrained='vggface2').eval()
@@ -67,7 +63,7 @@ def main():
         length = face_to_hair.length[face]
 
         faces.append(face)
-        lengths.append(length)
+        lengths.append(length_to_num(length))
 
         for file in glob.glob(path + face + '/*'):
             img = Image.open(file)
@@ -86,6 +82,8 @@ def main():
             '''
 
         face_to_emb[face] = embeddings
+
+    print(lengths)
 
     get_num_emb = lambda f: len(face_to_emb[f])
     unnest_list = lambda l: [x for sub in l for x in sub]
