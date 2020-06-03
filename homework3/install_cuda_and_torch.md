@@ -23,7 +23,6 @@ sudo apt install python3.6
 unset PYTHONPATH
 virtualenv --no-site-packages -p python3.6 ros3env
 . ./ros3env/bin/actiave
-pip install --extra-index-url https://rospypi.github.io/simple/ rospy
 pip install torch torchvision
 ```
 

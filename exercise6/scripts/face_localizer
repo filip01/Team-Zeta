@@ -89,7 +89,9 @@ class face_localizer:
         result = self.sock.recv(4096)
 
         # extract info from result
-        info = pickle.load(result, protocol=2)
+        result = str.decode(result)
+        info = [int(x) for x in result.split(' ')]
+        print('face info :', info)
 
         return info
 
@@ -310,7 +312,7 @@ class face_localizer:
                 self.faces.hairLength.append(info[2])
                 self.faces.images.append(rgb_msg)
                 self.faces_pub.publish(self.faces)
-                print(self.faces)
+                # print(self.faces)
                 self.marker_num_2 += 1
                 marker_2 = Marker()
                 marker_2.header.stamp = rospy.Time(0)

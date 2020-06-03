@@ -31,8 +31,8 @@ class face_recognition:
         try:
             os.unlink(server_address)
         except OSError:
-        if os.path.exists(server_address):
-            raise
+            if os.path.exists(server_address):
+                raise
 
         # Create a UDS socket
         self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
@@ -45,7 +45,7 @@ class face_recognition:
         self.sock.listen()
 
         while True:
-            connection, client_address = sock.accept()
+            connection, client_address = self.sock.accept()
             print('Connected!')
 
             packets = []
@@ -58,21 +58,23 @@ class face_recognition:
 
             data = b"".join(packets)
             img_face, img_features = pickle.loads(data, encoding='latin1')
+            face_emb = self.get_embedding(img_face)
+            feature_emb = self.get_embedding(img_features)
 
             # perform recognition
-            face_id = self.recognition(self.face_model, img_face)
-            color = self.recognition(self.color_model, img_features)
-            length = self.recognition(self.length_model, img_features)
+            face_id = self.recognition(self.face_model, face_emb)
+            color = self.recognition(self.color_model, feature_emb)
+            length = self.recognition(self.length_model, feature_emb)
 
-            # pack results into a tuple
-            result = (face_id, hair, length)
-            data = pickle.dump(result, protocol=2)
+            # pack results into a list
+            result = [face_id[0], color[0], length[0]]
+            data = str.encode(' '.join(str(x) for x in result))
 
             # send result back
             connection.send(data)
 
             # close connection
-            connection.shutdown()
+            # connection.shutdown()
             connection.close()
 
     def get_embedding(self, img_cv):
@@ -83,7 +85,8 @@ class face_recognition:
         img = ToTensor()(img)
 
         # calculate embeddings
-        return resnet(img.unsqueeze(0))
+        emb = self.resnet(img.unsqueeze(0))
+        return [emb.detach().numpy().ravel()]
 
     def recognition(self, model, emb):
         return model.predict(emb)
