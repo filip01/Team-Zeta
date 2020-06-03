@@ -658,11 +658,96 @@ def calculate_face_approach_pos(x,y, robotx, roboty, skeleton, client):
 
     return pose
 
+def speechRecog(question):
+    
+    toggle = "on"
+    togglePub.publish(toggle)
 
+    confirmed = False
+    output = ""
+
+    while(confirmed == False):
+
+        try:
+            recognized = rospy.wait_for_message("/recognizer/output", String)
+        except Exception as e:
+            print(e)
+
+        if question == "gargamelWomen":
+            gargamel = "Gargamel: " + recognized.data
+            str = "Robot : I heard: " + recognized.data + " Is that correct?")
+            display(gargamel, 1)
+            display(str, 1)
+            output = recognized.data
+
+        
+        try:
+            recognized = rospy.wait_for_message("/recognizer/output", String)
+        except Exception as e:
+            print(e)
+
+        if recognized.data == "yes":
+            display("Gargamel: yes", 1)
+            confirmed = True
+        else:
+            display("Gargamel: no", 1)
+            display("Robot: Please repeat that..",1)
+     
+    return output
+    
+
+
+def najdiGargamela():
+
+    global gargamel
+    global client
+    global bridge
+    global gargamel_img
+    
+    display("Going to Gargamel",0)
+
+    #pojdi do gargamela
+    goal = MoveBaseGoal()
+    goal.target_pose.header.frame_id = "map"
+    goal.target_pose.header.stamp = rospy.Time.now()
+    goal.target_pose.pose = gargamel
+
+    client.send_goal(goal)
+
+    wait = client.wait_for_result()
+
+    if not wait:
+        rospy.logerr("Action server not available!")
+        rospy.signal_shutdown("Action server not available!")
+    else:
+        result = client.get_result()
+        if result:
+            print("Gargamel reached!")
+            display("Gargamel reached!", 0)
+
+            try:
+               gargamel_img_msg = rospy.wait_for_message("/camera/rgb/image_raw", Image)
+            except Exception as e:
+               print(e)
+               return 0
+
+            try:
+                gargamel_img = bridge.imgmsg_to_cv2(gargamel_img_msg , "bgr8")
+            except CvBridgeError as e:
+                print(e)
+
+            display("ROBOT: What kind of women do you preffer?", 1)
+            type = speechRecog("gargamelWomen")
+            print(type)
+
+
+        else:
+            print("big oof")  
          
 def raziskovanjeProstora():
     
     print("Raziskovanje prostora.")
+    display("Searching the space", 0)
 
     global width
     global heigth
@@ -675,8 +760,14 @@ def raziskovanjeProstora():
     global cylinders
     global faces
     global gargamel
+    global gargamelPic
     global ringsDistances
     global lastFace
+    global client
+    global bridge
+    global togglePub
+
+    togglePub = rospy.Publisher('toggle', String, queue_size=10)
 
     gargamel = {}
     faces =  []
@@ -688,6 +779,7 @@ def raziskovanjeProstora():
     lastFace = 0
     lastCylinder = 0
     soundhandle = SoundClient()
+    bridge = CvBridge()
 
     try:
         map = rospy.wait_for_message("map", OccupancyGrid)
@@ -775,7 +867,23 @@ def raziskovanjeProstora():
     cylinders_info = objs_info()
     cylinders_info.poses, cylinders_info.colors = [], []  
     
+
+    try:
+        facesInfo = rospy.wait_for_message("faces_info", faces_info)
+    except Exception as e:
+        print(e)
     
+    for i in range(lastFace, len(facesInfo.poses)):
+        lastFace += 1
+        facePos = calculate_face_approach_pos(faces_info.poses[i].position.x,faces_info.poses[i].position.y, faces_info.robotPoses[i].position.x, faces_info.robotPoses[i].position.y, skeleton)
+        
+        if facesInfo.ids[i] == 0: 
+            gargamel = facePos
+            #gargamelPic = bridge.imgmsg_to_cv2(faces_info.images[i], "bgr8")
+        else : 
+            face = Face(facesInfo.hairColor[i], facesInfo.hairLength[i], facesInfo.ids[i], facePos,facesInfo.images[i])
+            faces.append(face)
+    '''
     while x_current != -1:
         move_map= next_goal(client, move_map,20,width,heigth)
         #rings approach position
@@ -785,7 +893,7 @@ def raziskovanjeProstora():
             print(e)
 
         for i in range(lastRing, len(rinfo.poses)):
-            lastRing += 1
+            lastRing += 1 gargamel = facePos
             arr = calculate_rings_approach_pos(rinfo.poses[i].position.x,rinfo.poses[i].position.y, skeleton)
             rings[rinfo.colors[i]] = arr[1]
             ringsDistances[[rinfo.colors[i]]] = arr[0]
@@ -811,16 +919,19 @@ def raziskovanjeProstora():
             
             if facesInfo.ids[i] == 0: 
                 gargamel = facePos
+                #gargamelPic = bridge.imgmsg_to_cv2(faces_info.images[i], "bgr8")
             else : 
                 face = Face(facesInfo.hairColor[i], facesInfo.hairLength[i], facesInfo.ids[i], facePos,facesInfo.images[i])
                 faces.append(face)
-             
+    '''         
         
         
         
-    print(rings)
- 
+    print("CYLINDERS:",cylinders)
+    print("RINGS:",rings)
+    print("FACES:",faces)
 
+    '''
     plt.close()
     fig, axes = plt.subplots(1, 5, figsize=(8, 4), sharex=True, sharey=True)
     ax = axes.ravel()
@@ -847,7 +958,8 @@ def raziskovanjeProstora():
 
     fig.tight_layout()
     plt.show()
-
+    '''
+    display("Space searched!", 0)
 
 
 def main():
@@ -859,6 +971,8 @@ def main():
     informacije = False
 
     raziskovanjeProstora()
+    najdiGargamela()
+    
     rospy.spin()
 
 if __name__ == '__main__':
