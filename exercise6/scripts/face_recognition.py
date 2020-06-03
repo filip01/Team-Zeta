@@ -62,7 +62,7 @@ class face_recognition:
             feature_emb = self.get_embedding(img_features)
 
             # perform recognition
-            face_id = self.recognition(self.face_model, face_emb)
+            face_id = self.recognition(self.face_model, feature_emb)
             color = self.recognition(self.color_model, feature_emb)
             length = self.recognition(self.length_model, feature_emb)
 
@@ -82,6 +82,7 @@ class face_recognition:
         img = Image.fromarray(img_cv)
 
         img = img.resize((160, 160))
+        img.show()
         img = ToTensor()(img)
 
         # calculate embeddings

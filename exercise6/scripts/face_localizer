@@ -80,6 +80,8 @@ class face_localizer:
 
         # send 2 images for face / hair + length recognition
         print('Sending face')
+        img_face = cv2.cvtColor(img_face, cv2.COLOR_BGR2RGB)
+        img_features = cv2.cvtColor(img_features, cv2.COLOR_BGR2RGB)
         face_and_features = (img_face, img_features)
         data = pickle.dumps(face_and_features, protocol=2)
         self.sock.sendall(data)
