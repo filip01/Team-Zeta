@@ -669,7 +669,11 @@ def calculate_rings_approach_pos( x,y, skeleton):
     pose.orientation.z = q[2]
     pose.orientation.w = q[3]
 
-    return pose
+    distance = euclidian_distance(xgoal,ygoal, x, y)
+
+    print("DISTANCE:", distance)
+
+    return [distance, pose]
 
 
 def raziskovanjeProstora():
@@ -686,10 +690,14 @@ def raziskovanjeProstora():
     global rings
     global cylinders
     global faces
+    global ringsDistances
     global lastFace
+
     faces = {'init' : 0}
     cylinders = {'init': 0}
     rings = {'init': 0}
+    ringsDistances = {'init': 0}
+
     lastRing = 0
     lastFace = 0
     lastCylinder = 0
@@ -779,30 +787,7 @@ def raziskovanjeProstora():
     rings_info.poses, rings_info.colors = [], []
 
     cylinders_info = objs_info()
-    cylinders_info.poses, cylinders_info.colors = [], []
-    
-    try:   
-        rinfo = rospy.wait_for_message("rings_info", objs_info)
-    except Exception as e:
-        print(e)
-
-    for i in range(lastRing, len(rinfo.poses)):
-        lastRing += 1
-        rings[rinfo.colors[i]] = calculate_cylinder_approach_pos(rinfo.poses[i].position.x,rinfo.poses[i].position.y, skeleton)
-       
-    goal = MoveBaseGoal()
-    goal.target_pose.header.frame_id = "map"
-    goal.target_pose.header.stamp = rospy.Time.now()
-    goal.target_pose.pose = rings["black"]
-    client.send_goal(goal)
-    wait = client.wait_for_result()
-
-    goal = MoveBaseGoal()
-    goal.target_pose.header.frame_id = "map"
-    goal.target_pose.header.stamp = rospy.Time.now()
-    goal.target_pose.pose = rings["green"]
-    client.send_goal(goal)
-    wait = client.wait_for_result()
+    cylinders_info.poses, cylinders_info.colors = [], []  
     
     
     while x_current != -1:
@@ -815,7 +800,9 @@ def raziskovanjeProstora():
 
         for i in range(lastRing, len(rinfo.poses)):
             lastRing += 1
-            rings[rinfo.colors[i]] = calculate_cylinder_approach_pos(rinfo.poses[i].position.x,rinfo.poses[i].position.y, skeleton)
+            arr = calculate_rings_approach_pos(rinfo.poses[i].position.x,rinfo.poses[i].position.y, skeleton)
+            rings[rinfo.colors[i]] = arr[1]
+            ringsDistances[[rinfo.colors[i]]] = arr[0]
 
         #cylinders approach position
         try:
