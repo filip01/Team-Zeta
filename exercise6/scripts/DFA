@@ -600,6 +600,82 @@ def calculateFaceApproach(faces_info, image, skeleton):
     markers_pub.publish(marker)
     return newPose
 
+def calculate_cylinder_approach_pos(x,y, xBot, yBot):
+
+    dx = xBot - x
+    dy = yBot - y
+    xN = dx / math.sqrt(float(dx*dx + dy *dy))  # normalize
+    yN = dy / math.sqrt(float(dx*dx + dy *dy))
+
+    dist = 0.5
+
+    angle = np.arctan2((y-yBot),(x-xBot))
+   
+    q = quaternion_from_euler(0,0,angle)
+
+    pose = Pose()
+    pose.position.x = x + dist*xN
+    pose.position.y = y + dist*yN
+    pose.position.z = 0
+    pose.orientation.x = q[0]
+    pose.orientation.y = q[1]
+    pose.orientation.z = q[2]
+    pose.orientation.w = q[3]
+
+    return pose
+ 
+def calculate_rings_approach_pos( x,y, skeleton):
+
+    global map_transform
+    global map_resolution
+    global heigth 
+    global width
+
+    min_d=1000
+    xgoal=0
+    ygoal=0
+
+    #find nearest possible goal on the skeleton
+    for i in xrange(heigth):
+        for j in xrange(width):
+            if skeleton[i][j] == 1:
+
+                pt = PointStamped()
+                pt.point.x = j * map_resolution
+                pt.point.y = (heigth - i) * map_resolution
+                pt.point.z = 0.0
+
+                pose_transformed = tf2_geometry_msgs.do_transform_point(pt, map_transform)
+
+
+                x2=pose_transformed.point.x
+                y2=pose_transformed.point.y
+
+                if  euclidian_distance(x,y,x2,y2) < min_d:
+                    min_d = euclidian_distance(x,y,x2,y2)
+                    xgoal = x2
+                    ygoal = y2              
+
+    angle = np.arctan2((y-ygoal),(x-xgoal))   
+    q = quaternion_from_euler(0,0,angle)
+
+
+    pose = Pose()
+    pose.position.x = xgoal
+    pose.position.y = ygoal
+    pose.position.z = 0.0
+    pose.orientation.x = q[0]
+    pose.orientation.y = q[1]
+    pose.orientation.z = q[2]
+    pose.orientation.w = q[3]
+
+    distance = euclidian_distance(xgoal,ygoal, x, y)
+
+    print("DISTANCE:", distance)
+
+    return [distance, pose]
+
+
 def raziskovanjeProstora():
     
     print("Raziskovanje prostora.")
@@ -614,12 +690,17 @@ def raziskovanjeProstora():
     global rings
     global cylinders
     global faces
+    global ringsDistances
     global lastFace
+
     faces = {'init' : 0}
     cylinders = {'init': 0}
     rings = {'init': 0}
+    ringsDistances = {'init': 0}
+
     lastRing = 0
     lastFace = 0
+    lastCylinder = 0
     soundhandle = SoundClient()
 
     try:
@@ -706,21 +787,33 @@ def raziskovanjeProstora():
     rings_info.poses, rings_info.colors = [], []
 
     cylinders_info = objs_info()
-    cylinders_info.poses, cylinders_info.colors = [], []
+    cylinders_info.poses, cylinders_info.colors = [], []  
     
-
     
     while x_current != -1:
         move_map= next_goal(client, move_map,20,width,heigth)
+        #rings approach position
         try:   
             rinfo = rospy.wait_for_message("rings_info", objs_info)
         except Exception as e:
             print(e)
 
-        for i in range(lastRing, len(rinfo.colors)):
+        for i in range(lastRing, len(rinfo.poses)):
             lastRing += 1
-            rings[rinfo.colors[i]] = rinfo.poses[i]
-   
+            arr = calculate_rings_approach_pos(rinfo.poses[i].position.x,rinfo.poses[i].position.y, skeleton)
+            rings[rinfo.colors[i]] = arr[1]
+            ringsDistances[[rinfo.colors[i]]] = arr[0]
+
+        #cylinders approach position
+        try:
+            cinfo = rospy.wait_for_message("cylinders_info", objs_info)
+        except Exception as e:
+            print(e)
+
+        for i in range(lastCylinder, len(cinfo.poses)):
+            lastCylinder += 1
+            cylinders[cinfo.colors[i]] = calculate_cylinder_approach_pos(cinfo.poses[i].position.x,cinfo.poses[i].position.y, cinfo.robot_point_stamped[i].point.x, cinfo.robot_point_stamped[i].point.y) 
+
         try:
             facesInfo = rospy.wait_for_message("faces_info", faces_info)
         except Exception as e:
@@ -731,13 +824,8 @@ def raziskovanjeProstora():
             calculateFaceApproach(facesInfo.poses[i], facesInfo.images[i], skeleton)  
              
         
-        '''
-        try:
-            cinfo = rospy.wait_for_message("cylinders_info", objs_info)
-        except Exception as e:
-            print(e)
-        print(cinfo)
-        '''
+        
+        
     print(rings)
  
 
@@ -768,12 +856,6 @@ def raziskovanjeProstora():
     fig.tight_layout()
     plt.show()
 
-    pt = PointStamped()
-    pt.point.x = x_current * map_resolution
-    pt.point.y = (heigth - y_current) * map_resolution
-    pt.point.z = 0.0
-
-    pose_transformed = tf2_geometry_msgs.do_transform_point(pt, map_transform)
 
 
 def main():

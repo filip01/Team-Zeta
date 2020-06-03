@@ -309,7 +309,7 @@ void cloud_cb(const pcl::PCLPointCloud2ConstPtr &cloud_blob)
     
 
 
-    cylinders_info.robot_point_stamped = get_robot_ps(time_rec, time_test);
+    cylinders_info.robot_point_stamped.push_back(get_robot_ps(time_rec, time_test));
 
     visualization_msgs::Marker marker;
     marker.header.frame_id = "map";
@@ -376,6 +376,8 @@ void cloud_cb(const pcl::PCLPointCloud2ConstPtr &cloud_blob)
   
     pubm.publish(markerArray);
 
+    
+
     cylinders_info.poses.push_back(marker.pose);
     cylinders_info.colors.push_back(color);
 
@@ -411,7 +413,7 @@ int main(int argc, char **argv)
   cylinders_info_pub = nh.advertise<exercise6::objs_info>("cylinders_info", 10);
   cylinders_info.poses =  std::vector<geometry_msgs::Pose>();
   cylinders_info.colors =  std::vector<std::string>();
-  cylinders_info.robot_point_stamped = geometry_msgs::PointStamped();
+  cylinders_info.robot_point_stamped = std::vector<geometry_msgs::PointStamped>();
 
   // Spin
   ros::Rate rate(10);
