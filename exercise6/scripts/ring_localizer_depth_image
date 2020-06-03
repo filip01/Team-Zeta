@@ -18,7 +18,7 @@ from geometry_msgs.msg import PointStamped, Vector3, Pose, Twist
 from cv_bridge import CvBridge, CvBridgeError
 from visualization_msgs.msg import Marker, MarkerArray
 from std_msgs.msg import ColorRGBA
-
+from exercise6.msg import objs_info
 
 class ring_localizer:
     def __init__(self):
@@ -64,6 +64,10 @@ class ring_localizer:
         # Publiser for the visualization markers
         self.markers_pub = rospy.Publisher('ring_markers', MarkerArray, queue_size=1000)
 
+        self.rings_pub = rospy.Publisher('rings_info', objs_info, queue_size=30)
+        self.ring_info = objs_info()
+        self.ring_info.poses = []
+        self.ring_info.colors = []
         # Object we use for transforming between coordinate frames
         self.tf_buf = tf2_ros.Buffer()
         self.tf_listener = tf2_ros.TransformListener(self.tf_buf)
@@ -117,16 +121,23 @@ class ring_localizer:
             if add:
                 pose = Pose()
         
-                if self.ringMargin(last_detected_ring,margin1,point_world) and self.ringMargin(last_detected_ring2,margin1,point_world):
+                if self.ringMargin(last_detected_ring,margin1,point_world) and self.ringMargin(last_detected_ring2,margin1,point_world) and self.ringMargin(last_detected_ring3,margin1,point_world) and self.ringMargin(last_detected_ring4,margin1,point_world):
                    
-                   pose.position.x = (point_world.point.x + last_detected_ring[0] + last_detected_ring2[0])/3
-                   pose.position.y = (point_world.point.y + last_detected_ring[1] + last_detected_ring2[1])/3
-                   pose.position.z = (point_world.point.z + last_detected_ring[2] + last_detected_ring2[2])/3
+                   pose.position.x = (point_world.point.x + last_detected_ring3[0] + last_detected_ring4[0])/3
+                   pose.position.y = (point_world.point.y + last_detected_ring3[1] + last_detected_ring4[1])/3
+                   pose.position.z = (point_world.point.z + last_detected_ring3[2] + last_detected_ring4[2])/3
                    print("Ring number ", len(detected_rings)+1," detected at: X:",pose.position.x, " Y:", pose.position.y)
                 
                    detected_rings.append([pose.position.x,pose.position.y, pose.position.z])
                 else:
                     pose = None
+                
+                last_detected_ring4[0] = last_detected_ring3[0]
+                last_detected_ring4[1] = last_detected_ring3[1]
+                last_detected_ring4[2] = last_detected_ring3[2]   
+                last_detected_ring3[0] = last_detected_ring2[0]
+                last_detected_ring3[1] = last_detected_ring2[1]
+                last_detected_ring3[2] = last_detected_ring2[2]   
                 last_detected_ring2[0] = last_detected_ring[0]
                 last_detected_ring2[1] = last_detected_ring[1]
                 last_detected_ring2[2] = last_detected_ring[2]   
@@ -203,9 +214,11 @@ class ring_localizer:
         img = depth_image.copy()
 
         img = np.nan_to_num(img)
-        img = np.uint8(img * (255/np.amax(img)))
+        maks = np.amax(img)
+        if(maks > 0):
+            img = np.uint8(img * (255/maks))
 
-        ret,th = cv2.threshold(img, 0,255,cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+        ret, th = cv2.threshold(img, 0,255,cv2.THRESH_BINARY + cv2.THRESH_OTSU)
 
         kp = self.detector.detect(th)
 
@@ -228,8 +241,8 @@ class ring_localizer:
             y2 = y + r if y + r < new_height else new_height
             x1 = x - r if x - r > 0 else 0
             x2 = x + r if x + r < self.dims[1] else self.dims[1]
-        
-            mask = th[y1:y, x1:x2]
+            y3 = y - 10 if y - 10 > 0 else y
+            mask = th[y1:y3, x1:x2]
             
             rgb_image = rgb_image[y1:y2+10, 0:self.dims[1]]
             gray = cv2.cvtColor(rgb_image, cv2.COLOR_BGR2GRAY)
@@ -268,6 +281,8 @@ class ring_localizer:
                 color = self.color_client(rgb, cv2.bitwise_not(rgb_mask))
                 print("Ring color:", color)
                 self.marker_num += 1
+                self.ring_info.poses.append(pose)
+                self.ring_info.colors.append(color)
                 marker = Marker()
                 marker.header.stamp = rospy.Time(0)
                 marker.header.frame_id = 'map'
@@ -294,6 +309,7 @@ class ring_localizer:
                     marker.color = ColorRGBA(1, 0, 1, 1)
                 self.marker_array.markers.append(marker)
                 self.markers_pub.publish(self.marker_array)
+        self.rings_pub.publish(self.ring_info)
 
 
     def getDepth(self, depth_image, th, y1, y2, x1, x2):
@@ -337,6 +353,10 @@ def main():
         last_detected_ring = [0, 0, 0]
         global last_detected_ring2
         last_detected_ring2 = [0, 0, 0]
+        global last_detected_ring3
+        last_detected_ring3 = [0, 0, 0]
+        global last_detected_ring4
+        last_detected_ring4 = [0, 0, 0]
 
         ring_finder = ring_localizer()
            
