@@ -679,7 +679,9 @@ def speechRecog(question):
             display(gargamel, 1)
             display(str, 1)
             output = recognized.data
-
+            if recognized.data.split(" ")[0] != "women":
+                display("Robot: I didnt expect that answer, Please repeat that..",1)
+                continue
         
         try:
             recognized = rospy.wait_for_message("/recognizer/output", String)
@@ -738,12 +740,58 @@ def najdiGargamela():
 
             display("ROBOT: What kind of women do you preffer?", 1)
             type = speechRecog("gargamelWomen")
-            print(type)
+            findGargamelsWoman(type)
+            
 
 
         else:
             print("big oof")  
-         
+
+def findGargamelsWoman(type):
+    global faces 
+    global currentCandidates
+
+    print("TYPE :", type)
+    type = type.split(" ")
+    hcolor = type[2]
+    hlength = type[3]
+    currentCandidates = []
+
+    #ugly but whatever
+    if hcolor == "dark":
+        hcolor= "1"
+    else:
+        hcolor="0"
+    if hlength== "long":
+        hlength="1"
+    else:
+        hlength="0"
+
+    print("hcolor, hlength", hcolor, hlength)
+
+    for i in xrange(len(faces)):
+        #print("TEST:",faces[i].id, faces[i].haircolor, faces[i].hairlength,  str(faces[i].haircolor) == str(hcolor), faces[i].haircolor == "1"  )
+        if(faces[i].haircolor == hcolor and faces[i].hairlength == hlength):
+            currentCandidates.append(faces[i])
+            print("Test: ", len(currentCandidates) )
+            print("id: ", faces[i].id )
+
+    if len(currentCandidates) == 0:
+        display("No such woman detected D:", 1)
+    else:
+        display("Approaching a match",0)
+        approachMatch
+        
+
+def approachMach():
+
+  global currrentCandidates
+  # TO DO: pojdi do zenske jo vprasaj za barvo, nazaj do gargamela ga vprasaj ce mu je vsec
+  # JA: nadaljuj s cilindri in obroci
+  # NE: odstrani zensko iz currentMatches in nadaljuj z naslednjo, ce naslednje ni nbe naredi nic
+  # bo sel robot nazaj do gargamela in ga spet sprasval
+
+
 def raziskovanjeProstora():
     
     print("Raziskovanje prostora.")
@@ -766,6 +814,7 @@ def raziskovanjeProstora():
     global client
     global bridge
     global togglePub
+    global married 
 
     togglePub = rospy.Publisher('toggle', String, queue_size=10)
 
@@ -775,6 +824,7 @@ def raziskovanjeProstora():
     rings = {'init': 0}
     ringsDistances = {'init': 0}
 
+    married= False
     lastRing = 0
     lastFace = 0
     lastCylinder = 0
@@ -973,7 +1023,9 @@ def main():
     informacije = False
 
     raziskovanjeProstora()
-    najdiGargamela()
+
+    while(not married):
+        najdiGargamela()
 
     rospy.spin()
 
