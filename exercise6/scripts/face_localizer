@@ -413,6 +413,7 @@ def main():
             rate.sleep()
 
         cv2.destroyAllWindows()
+        face_finder.sock.close()
 
 if __name__ == '__main__':
     main()
