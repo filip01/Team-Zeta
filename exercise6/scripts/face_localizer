@@ -310,7 +310,7 @@ class face_localizer:
                 self.faces.hairLength.append(info[2])
                 self.faces.images.append(rgb_msg)
                 self.faces_pub.publish(self.faces)
-
+                print(self.faces)
                 self.marker_num_2 += 1
                 marker_2 = Marker()
                 marker_2.header.stamp = rospy.Time(0)
