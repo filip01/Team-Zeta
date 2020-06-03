@@ -69,7 +69,7 @@ belief_display_pub = rospy.Publisher("/belief_text", String, queue_size=3)
 dialogue_display_pub = rospy.Publisher("/conversation_text", String, queue_size=3)
 
 class Face:
-  def __init__(haircolor, hairlength, id, pose, img):
+  def __init__(self, haircolor, hairlength, id, pose, img):
     self.haircolor = haircolor
     self.hairlength = hairlength
     self.id = id
@@ -612,7 +612,7 @@ def calculate_rings_approach_pos( x,y, skeleton):
 
     return [distance, pose]
 
-def calculate_face_approach_pos(x,y, robotx, roboty, skeleton, client):
+def calculate_face_approach_pos(x,y, robotx, roboty, skeleton):
     global heigth
     global width
     global map_resolution
@@ -675,7 +675,7 @@ def speechRecog(question):
 
         if question == "gargamelWomen":
             gargamel = "Gargamel: " + recognized.data
-            str = "Robot : I heard: " + recognized.data + " Is that correct?")
+            str = "Robot : I heard: " + recognized.data + " Is that correct?"
             display(gargamel, 1)
             display(str, 1)
             output = recognized.data
@@ -867,22 +867,24 @@ def raziskovanjeProstora():
     cylinders_info = objs_info()
     cylinders_info.poses, cylinders_info.colors = [], []  
     
-
+    
     try:
         facesInfo = rospy.wait_for_message("faces_info", faces_info)
     except Exception as e:
         print(e)
-    
+    #print("TEST ", facesInfo)
     for i in range(lastFace, len(facesInfo.poses)):
         lastFace += 1
-        facePos = calculate_face_approach_pos(faces_info.poses[i].position.x,faces_info.poses[i].position.y, faces_info.robotPoses[i].position.x, faces_info.robotPoses[i].position.y, skeleton)
+        facePos = calculate_face_approach_pos(facesInfo.poses[i].position.x,facesInfo.poses[i].position.y, facesInfo.robotPoses[i].position.x, facesInfo.robotPoses[i].position.y, skeleton)
         
         if facesInfo.ids[i] == 0: 
             gargamel = facePos
             #gargamelPic = bridge.imgmsg_to_cv2(faces_info.images[i], "bgr8")
         else : 
             face = Face(facesInfo.hairColor[i], facesInfo.hairLength[i], facesInfo.ids[i], facePos,facesInfo.images[i])
+    
             faces.append(face)
+    
     '''
     while x_current != -1:
         move_map= next_goal(client, move_map,20,width,heigth)
@@ -892,7 +894,7 @@ def raziskovanjeProstora():
         except Exception as e:
             print(e)
 
-        for i in range(lastRing, len(rinfo.poses)):
+        for i in range(lastRing, len(rinfacfo.poses)):
             lastRing += 1 gargamel = facePos
             arr = calculate_rings_approach_pos(rinfo.poses[i].position.x,rinfo.poses[i].position.y, skeleton)
             rings[rinfo.colors[i]] = arr[1]
@@ -972,7 +974,7 @@ def main():
 
     raziskovanjeProstora()
     najdiGargamela()
-    
+
     rospy.spin()
 
 if __name__ == '__main__':

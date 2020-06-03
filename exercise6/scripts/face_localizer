@@ -310,8 +310,8 @@ class face_localizer:
                 #TO DO: add other features
                 info = self.call_face_recognition(face_region, hair_region)
                 self.faces.ids.append(info[0]) 
-                self.faces.hairColor.append(info[1])
-                self.faces.hairLength.append(info[2])
+                self.faces.hairColor.append(str(info[1]))
+                self.faces.hairLength.append(str(info[2]))
                 self.faces.images.append(rgb_msg)
                 self.faces_pub.publish(self.faces)
                 # print(self.faces)

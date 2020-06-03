@@ -13,9 +13,10 @@ lb = Listbox(root, font=("Helvetica", 13), bg='#F0F8FF', width=40, height=7)
 top = Toplevel()
 top.title("Dialogue")
 top.geometry("+10+350")
-lb2 = Listbox(top, font=("Helvetica", 13), bg='#F0F8FF', width=40, height=10)
+lb2 = Listbox(top, font=("Helvetica", 13), bg='#F0F8FF', width=55, height=10)
 
 n = 0
+n2 = 0
 
 def newBelief(data):
    global n
@@ -31,8 +32,14 @@ def newBelief(data):
 
 def newDialogue(data):
 
+   global n2
    lb2.insert(0, data.data)
+   lb2.itemconfig(0, {'fg': 'black'})
 
+   if n2 > 0:
+      lb2.itemconfig(1, {'fg': '#778899'}) 
+
+   n2=n2+1
 
    
    
