@@ -55,6 +55,7 @@ DARK d ah l
 DARK d
 BRIGHT b r ay t
 
+
 %HAIRLENGTH
 SHORT s ao r t
 LONG l ah n 
@@ -62,5 +63,6 @@ LONG l ah n
 %HAIR
 HAIR hh ey 
 
-
+%DARKLONG
+DARKLONG d ao r k l ah n 
 
