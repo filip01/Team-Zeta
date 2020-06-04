@@ -94,12 +94,12 @@ if __name__ == "__main__":
     #plt.show()
 
     X, y = all_hist, images_color
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.4, stratify=y)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.25, stratify=y)
 
     Xrgb = rgbhists
     Xhsv = hsvHists
-    X_trainRGB, X_testRGB, y_trainRGB, y_testRGB = train_test_split(Xrgb, y, test_size=0.4, stratify=y)
-    X_trainHSV, X_testHSV, y_trainHSV, y_testHSV = train_test_split(Xhsv, y, test_size=0.4, stratify=y)
+    X_trainRGB, X_testRGB, y_trainRGB, y_testRGB = train_test_split(Xrgb, y, test_size=0.25, stratify=y)
+    X_trainHSV, X_testHSV, y_trainHSV, y_testHSV = train_test_split(Xhsv, y, test_size=0.25, stratify=y)
 
     #test = load('svc.joblib')
     #print('load test : ', test.predict(X_test))
