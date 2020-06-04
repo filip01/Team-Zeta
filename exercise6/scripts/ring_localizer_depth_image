@@ -243,21 +243,19 @@ class ring_localizer:
             x2 = x + r if x + r < self.dims[1] else self.dims[1]
             y3 = y - 10 if y - 10 > 0 else y
             mask = th[y1:y3, x1:x2]
-            
-            rgb_image = rgb_image[y1:y2+10, 0:self.dims[1]]
+            x3 = x - self.dims[1]/4 if x - self.dims[1]/4 > 0 else 0
+            x4 = x + self.dims[1]/4 if x + self.dims[1]/4 < self.dims[1] else self.dims[1]
+            rgb_image = rgb_image[y1:y2+10, x3:x4]
             gray = cv2.cvtColor(rgb_image, cv2.COLOR_BGR2GRAY)
             img1 = cv2.equalizeHist(gray)
 
             #thresholdin img
             ret1,th1 = cv2.threshold(img1, 0,255,cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+            ret2,th2 = cv2.threshold(gray, 0,255,cv2.THRESH_BINARY + cv2.THRESH_OTSU)
             kp1 = self.detector.detect(th1)
-
-            blank = np.zeros((1, 1))  
-            blobs1 = cv2.drawKeypoints(img1, kp1, blank, (0, 0, 255), cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS) 
-
-            if(len(kp1) != 1):
-                break;
-            else:
+            kp2 = self.detector.detect(th2)
+            
+            if(len(kp1) == 1):
                 pts1 = cv2.KeyPoint_convert(kp1)
                 x_1 = int(pts1[0][0])
                 y_1 = int(pts1[0][1])
@@ -270,6 +268,21 @@ class ring_localizer:
 
                 rgb_mask = th1[y1_1:y_1, x1_1:x2_1]
                 rgb = rgb_image[y1_1:y_1, x1_1:x2_1]
+            elif(len(kp2) == 1):
+                pts2 = cv2.KeyPoint_convert(kp2)
+                x_2 = int(pts2[0][0])
+                y_2 = int(pts2[0][1])
+                r_2 = int(kp2[0].size*2/3)
+
+                y1_2 = y_2 - r_2 - 10 if y_2 - r_2 - 10 > 0 else 0
+                y2_2 = y_2 + r_2 if y_2 + r_2 < new_height else new_height
+                x1_2 = x_2 - r_2 if x_2 - r_2 > 0 else 0
+                x2_2 = x_2 + r_2 if x_2 + r_2 < self.dims[1] else self.dims[1]
+
+                rgb_mask = th1[y1_2:y_2, x1_2:x2_2]
+                rgb = rgb_image[y1_2:y_2, x1_2:x2_2]
+            else:
+                break
 
             depth = self.getDepth(depth_image, th, y1, y, x1, x2)
             depth_time = depth_image_message.header.stamp
