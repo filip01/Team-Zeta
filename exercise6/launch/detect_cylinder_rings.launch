@@ -4,7 +4,7 @@
     <node pkg="exercise6" type="cylinder_segmentation" name="cylinder_segmentation">
         <remap from="input" to="/camera/depth/points"/>
     </node>
-    <node name="ring_localizer_simple" pkg="exercise6" type="ring_localizer_simple"/>
+    <node name="ring_localizer_depth_image" pkg="exercise6" type="ring_localizer_depth_image"/>
     <node name="color_detector" pkg="exercise6" type="color_detection" output="screen"/>
 
 </launch>
