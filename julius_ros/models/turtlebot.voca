@@ -49,10 +49,6 @@ WOMEN w iy m eh n
 WITH w iy t
 
 %HAIRCOLOR
-DARK d ao r k
-DARK d ah
-DARK d ah l
-DARK d
 BRIGHT b r ay t
 
 
@@ -65,4 +61,7 @@ HAIR hh ey
 
 %DARKLONG
 DARKLONG d ao r k l ah n 
+
+%DARKSHORT
+DARKSHORT d ao r k s
 
