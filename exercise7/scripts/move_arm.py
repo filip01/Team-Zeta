@@ -28,6 +28,10 @@ class Arm_Mover():
         self.extend.points = [JointTrajectoryPoint(positions=[0,0.3,1,0],
                                                     time_from_start = rospy.Duration(1))]
 
+        self.extendCircle = JointTrajectory()
+        self.extendCircle.joint_names = ["arm_shoulder_pan_joint", "arm_shoulder_lift_joint", "arm_elbow_flex_joint", "arm_wrist_flex_joint"]
+        self.extendCircle.points = [JointTrajectoryPoint(positions=[0,-1,1.9,0.9], time_from_start = rospy.Duration(1))]
+
     def new_user_command(self, data):
         self.user_command = data.data.strip()
         self.send_command = True
@@ -40,7 +44,10 @@ class Arm_Mover():
                 print('Retracted arm!')
             elif self.user_command == 'extend':
                 self.arm_movement_pub.publish(self.extend)
-                print('Extended arm!')
+                print('Extended arm! cylinder')
+            elif self.user_command == 'extend_circle':
+                self.arm_movement_pub.publish(self.extendCircle)
+                print('Extended arm circle!')
             else:
                 print('Unknown instruction:', self.user_command)
                 return(-1)

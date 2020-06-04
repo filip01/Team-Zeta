@@ -572,6 +572,13 @@ def calculate_cylinder_approach_pos(x,y, xBot, yBot):
 def approachCylinder(color):
 
     global twist_pub
+    global arm_movement_pub
+    global cylinders
+
+    if not color in cylinders.keys():
+        display("No "+ color + " cylinder detected, skipping...", 0)
+        return
+
     print("Approaching the cylinder")
     display("Approaching cylinder.",0)
 
@@ -588,9 +595,9 @@ def approachCylinder(color):
         rospy.logerr("Action server not available!")
         rospy.signal_shutdown("Action server not available!")
     else:
-
-        distance = 0.5
-
+        
+        distance = 0.3
+        speed = 0.1
         rate = rospy.Rate(10)
 
         vel_msg = Twist()
@@ -618,15 +625,16 @@ def approachCylinder(color):
         #Force the robot to stop
         twist_pub.publish(vel_msg)
 
-        print("Approached cylinder.")
-        display("Approached cylinder.", 0)
+        print("Approached cylinder.", 0)
+       
         
+        display("Extending manipulator",0)
         msg = String()
         msg.data = "extend"
 
         arm_movement_pub.publish(msg)
         rospy.sleep(2)
-
+        display("Retracting manipulator",0)
         msg.data = "retract"
         arm_movement_pub.publish(msg)
         rospy.sleep(2)
@@ -800,21 +808,29 @@ def speechRecog(question):
                 display("Robot: I didnt expect that answer, Please repeat that..",1)
                 continue
         elif question == 'favColor':
+            print("Recognized: ", recognized.data)
             if recognized.data.split(" ")[0] != "my":
                 display("Robot: I didnt expect that answer, Please repeat that..",1)
                 continue
             woman = "Woman: " + recognized.data
-            str_ = "Robot : I heard: " + recognized.data + " Is that correct?"
-            fav_color = recognized.data[4]
+            str_ = "Robot: I heard: " + recognized.data + " Is that correct?"
+            fav_color = recognized.data.split(' ')[4]
             display(woman, 1)
             display(str_, 1)
             output = fav_color
-            person = "Woman: "
+            person = "Woman"
         elif question == 'gargWomanAck':
             gargamel = "Gargamel: " + recognized.data
             str_ = "Robot : I heard: " + recognized.data + " Is that correct?"
             display(gargamel, 1)
             display(str_, 1)
+            output = recognized.data
+        elif question == 'proposal':
+            spouse = "Potential spouse: " + recognized.data
+            str_ = "Robot : I heard: " + recognized.data + " Is that correct?"
+            display(spouse, 1)
+            display(str_, 1)
+            person = "Spouse"
             output = recognized.data
         
         try:
@@ -887,6 +903,12 @@ def approach_ring(color):
     global ringsDistances
     global twist_pub
 
+    display("Moving to ring", 0)
+
+    if not color in rings.keys():
+        display("No "+ color + " ring detected, skipping...", 0)
+        return
+
     ring_approach_pose = rings[color]
     ring_distance= ringsDistances[color]
 
@@ -907,8 +929,8 @@ def approach_ring(color):
         if result:
             #FINE APPROACH
             print("ring reached!") 
-            display("closing in on ring", 1)
-            distance = ring_distance
+            display("closing in on ring", 0)
+            distance = ring_distance-0.1
             speed=0.1
 
             rate = rospy.Rate(10)
@@ -938,18 +960,19 @@ def approach_ring(color):
             #Force the robot to stop
             twist_pub.publish(vel_msg)
 
-            ''' TODO move arm
+            display("Extending manipulator", 0)
             msg = String()
-            msg.data = "extend"
+            msg.data = "extend_circle"
 
             arm_movement_pub.publish(msg)
             rospy.sleep(2)
 
+            display("Retracting manipulator", 0)
             msg.data = "retract"
+
             arm_movement_pub.publish(msg)
             rospy.sleep(2)
-            '''
-            display("ring grabbed", 1)
+           
             print("ROTATING")
             rotate(180)
 
@@ -1057,7 +1080,9 @@ def approachMatch():
     if gargAnswer == 'yes':
         # call other stuff
         display("Found a match", 0)
-        married = True
+        approachCylinder(favColor)
+        approach_ring(favColor)
+        propose()
 
     else:
         currentCandidates.pop(0)
@@ -1066,7 +1091,38 @@ def approachMatch():
             display("Finding other suitable matches..", 0)
             approachMatch()
         
-            
+def propose():
+
+    global currentCandidates
+    global married
+    global bridge
+    global client
+    global gargamel   
+    display("Moving to propose", 0)
+    move_to_pose(client, currentCandidates[0].pose)
+    display("Proposing", 0)
+    display("Robot: Will you marry Gargamel?", 1)
+
+    answer = speechRecog("proposal")
+
+    if answer == "yes":
+
+      married = True
+      display("Robot: hooray", 1)
+      return 
+
+    else:
+
+        currentCandidates.pop(0)
+
+        if len(currentCandidates)  > 0 :
+            display("Finding other suitable matches..", 0)
+            approachMatch()
+        
+        else:
+           display("Returning to gargamel...", 0) 
+    
+
 
 def raziskovanjeProstora():
     
@@ -1185,13 +1241,24 @@ def raziskovanjeProstora():
     
     client.wait_for_server()
     
-    move_bot(client, x_current,y_current, x_previous, y_previous)
+    #move_bot(client, x_current,y_current, x_previous, y_previous)
     
     rings_info = objs_info()
     rings_info.poses, rings_info.colors = [], []
 
     cylinders_info = objs_info()
     cylinders_info.poses, cylinders_info.colors = [], []  
+
+    #cylinders approach position
+    try:
+        cinfo = rospy.wait_for_message("cylinders_info", objs_info)
+    except Exception as e:
+        print(e)
+
+    for i in range(lastCylinder, len(cinfo.poses)):
+        lastCylinder += 1
+        cylinders[cinfo.colors[i]] = calculate_cylinder_approach_pos(cinfo.poses[i].position.x,cinfo.poses[i].position.y, cinfo.robot_point_stamped[i].point.x, cinfo.robot_point_stamped[i].point.y) 
+    
     
     
     try:
@@ -1210,7 +1277,17 @@ def raziskovanjeProstora():
             face = Face(facesInfo.hairColor[i], facesInfo.hairLength[i], facesInfo.ids[i], facePos,facesInfo.images[i])
     
             faces.append(face)
-    
+    try:   
+        rinfo = rospy.wait_for_message("rings_info", objs_info)
+    except Exception as e:
+        print(e)
+
+    for i in range(lastRing, len(rinfo.poses)):
+        lastRing += 1 
+        arr = calculate_rings_approach_pos(rinfo.poses[i].position.x,rinfo.poses[i].position.y, skeleton)
+        rings[rinfo.colors[i]] = arr[1]
+        ringsDistances[rinfo.colors[i]] = arr[0]
+
     '''
     while x_current != -1:
         move_map= next_goal(client, move_map,20,width,heigth)
@@ -1221,7 +1298,7 @@ def raziskovanjeProstora():
             print(e)
 
         for i in range(lastRing, len(rinfacfo.poses)):
-            lastRing += 1 gargamel = facePos
+            lastRing += 1 
             arr = calculate_rings_approach_pos(rinfo.poses[i].position.x,rinfo.poses[i].position.y, skeleton)
             rings[rinfo.colors[i]] = arr[1]
             ringsDistances[[rinfo.colors[i]]] = arr[0]
@@ -1251,13 +1328,7 @@ def raziskovanjeProstora():
             else : 
                 face = Face(facesInfo.hairColor[i], facesInfo.hairLength[i], facesInfo.ids[i], facePos,facesInfo.images[i])
                 faces.append(face)
-    '''         
-        
-        
-        
-    print("CYLINDERS:",cylinders)
-    print("RINGS:",rings)
-    print("FACES:",faces)
+    '''                
 
     '''
     plt.close()
@@ -1302,7 +1373,7 @@ def main():
 
     while(not married):
         najdiGargamela()
-
+    
     rospy.spin()
 
 if __name__ == '__main__':
