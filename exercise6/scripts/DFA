@@ -25,7 +25,6 @@ from std_msgs.msg import ColorRGBA
 from nav_msgs.msg import OccupancyGrid
 from skimage.util import invert
 from exercise6.msg import objs_info
-from sound_play.libsoundplay import SoundClient
 from exercise4.msg import faces_info
 
 PI = 3.1415926535897 
@@ -762,7 +761,7 @@ def calculate_face_approach_pos(x,y, robotx, roboty, skeleton):
                 x2=pose_transformed.point.x
                 y2=pose_transformed.point.y
 
-                if  euclidian_distance(x,y,x2,y2) < min_d and  euclidian_distance(x2,y2, robotx, roboty) < 0.36:
+                if  euclidian_distance(x,y,x2,y2) < min_d and  euclidian_distance(x2,y2, robotx, roboty) < 0.5:
                     min_d = euclidian_distance(x,y,x2,y2)
                     xgoal = x2
                     ygoal = y2
@@ -799,6 +798,15 @@ def speechRecog(question):
             print(e)
 
         if question == "gargamelWomen":
+
+            if len(recognized.data.split(' ')) == 4:
+                print(recognized.data.split(' '))
+                darkshort =  recognized.data.split(' ')[2]
+                col = darkshort.split("dark")
+                print(col)
+                col = col[1]
+                recognized.data= "women with dark "+ col + " hair"
+
             gargamel = "Gargamel: " + recognized.data
             str_ = "Robot : I heard: " + recognized.data + " Is that correct?"
             display(gargamel, 1)
@@ -863,7 +871,6 @@ def najdiGargamela():
     goal.target_pose.header.frame_id = "map"
     goal.target_pose.header.stamp = rospy.Time.now()
     goal.target_pose.pose = gargamel
-
     client.send_goal(goal)
 
     wait = client.wait_for_result()
@@ -1069,12 +1076,13 @@ def approachMatch():
     move_to_pose(client, gargamel)
 
     display("Robot: Do you like this woman?", 1)
-    '''
+    
     print("BEFORE IMAGE")
     cv2.imshow("Potential spouse",currentCandidateImg)
-    cv2.waitKey(1)
+    cv2.waitKey(0)
+    cv2.destroyWindow("Potential spouse")
     print("AFTER IMAGE")
-    '''
+    
     gargAnswer = speechRecog("gargWomanAck")
 
     if gargAnswer == 'yes':
@@ -1097,11 +1105,19 @@ def propose():
     global married
     global bridge
     global client
-    global gargamel   
+    global gargamel 
+    global gargamel_img
+
     display("Moving to propose", 0)
     move_to_pose(client, currentCandidates[0].pose)
     display("Proposing", 0)
     display("Robot: Will you marry Gargamel?", 1)
+
+    print("BEFORE IMAGE")
+    cv2.imshow("Potential wife", gargamel_img)
+    cv2.waitKey(0)
+    cv2.destroyWindow("Potential wife")
+    print("AFTER IMAGE")
 
     answer = speechRecog("proposal")
 
@@ -1160,7 +1176,7 @@ def raziskovanjeProstora():
     lastRing = 0
     lastFace = 0
     lastCylinder = 0
-    soundhandle = SoundClient()
+    
     bridge = CvBridge()
 
     try:
@@ -1238,17 +1254,17 @@ def raziskovanjeProstora():
                rgb[i][j][0] = 150
                move_map[i][j] = 100
 
-    
     client.wait_for_server()
-    
-    #move_bot(client, x_current,y_current, x_previous, y_previous)
+  
+    move_bot(client, x_current,y_current, x_previous, y_previous)
     
     rings_info = objs_info()
     rings_info.poses, rings_info.colors = [], []
 
     cylinders_info = objs_info()
     cylinders_info.poses, cylinders_info.colors = [], []  
-
+   
+    '''
     #cylinders approach position
     try:
         cinfo = rospy.wait_for_message("cylinders_info", objs_info)
@@ -1277,6 +1293,7 @@ def raziskovanjeProstora():
             face = Face(facesInfo.hairColor[i], facesInfo.hairLength[i], facesInfo.ids[i], facePos,facesInfo.images[i])
     
             faces.append(face)
+    
     try:   
         rinfo = rospy.wait_for_message("rings_info", objs_info)
     except Exception as e:
@@ -1287,21 +1304,10 @@ def raziskovanjeProstora():
         arr = calculate_rings_approach_pos(rinfo.poses[i].position.x,rinfo.poses[i].position.y, skeleton)
         rings[rinfo.colors[i]] = arr[1]
         ringsDistances[rinfo.colors[i]] = arr[0]
-
     '''
+    
     while x_current != -1:
         move_map= next_goal(client, move_map,20,width,heigth)
-        #rings approach position
-        try:   
-            rinfo = rospy.wait_for_message("rings_info", objs_info)
-        except Exception as e:
-            print(e)
-
-        for i in range(lastRing, len(rinfacfo.poses)):
-            lastRing += 1 
-            arr = calculate_rings_approach_pos(rinfo.poses[i].position.x,rinfo.poses[i].position.y, skeleton)
-            rings[rinfo.colors[i]] = arr[1]
-            ringsDistances[[rinfo.colors[i]]] = arr[0]
 
         #cylinders approach position
         try:
@@ -1312,23 +1318,37 @@ def raziskovanjeProstora():
         for i in range(lastCylinder, len(cinfo.poses)):
             lastCylinder += 1
             cylinders[cinfo.colors[i]] = calculate_cylinder_approach_pos(cinfo.poses[i].position.x,cinfo.poses[i].position.y, cinfo.robot_point_stamped[i].point.x, cinfo.robot_point_stamped[i].point.y) 
-        #face approach position
+        
+        
+        
         try:
             facesInfo = rospy.wait_for_message("faces_info", faces_info)
         except Exception as e:
             print(e)
-        
+        #print("TEST ", facesInfo)
         for i in range(lastFace, len(facesInfo.poses)):
             lastFace += 1
-            facePos = calculate_face_approach_pos(faces_info.poses[i].position.x,faces_info.poses[i].position.y, faces_info.robotPoses[i].position.x, faces_info.robotPoses[i].position.y, skeleton)
+            facePos = calculate_face_approach_pos(facesInfo.poses[i].position.x,facesInfo.poses[i].position.y, facesInfo.robotPoses[i].position.x, facesInfo.robotPoses[i].position.y, skeleton)
             
             if facesInfo.ids[i] == 0: 
                 gargamel = facePos
                 #gargamelPic = bridge.imgmsg_to_cv2(faces_info.images[i], "bgr8")
             else : 
                 face = Face(facesInfo.hairColor[i], facesInfo.hairLength[i], facesInfo.ids[i], facePos,facesInfo.images[i])
+        
                 faces.append(face)
-    '''                
+        
+        try:   
+            rinfo = rospy.wait_for_message("rings_info", objs_info)
+        except Exception as e:
+            print(e)
+
+        for i in range(lastRing, len(rinfo.poses)):
+            lastRing += 1 
+            arr = calculate_rings_approach_pos(rinfo.poses[i].position.x,rinfo.poses[i].position.y, skeleton)
+            rings[rinfo.colors[i]] = arr[1]
+            ringsDistances[rinfo.colors[i]] = arr[0]
+               
 
     '''
     plt.close()

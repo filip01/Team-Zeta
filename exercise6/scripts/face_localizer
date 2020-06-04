@@ -33,7 +33,7 @@ class face_localizer:
         #self.face_detector = dlib.get_frontal_face_detector()
         self.face_cascade = cv2.CascadeClassifier('/opt/ros/kinetic/share/OpenCV-3.3.1-dev/haarcascades/haarcascade_frontalface_default.xml')
 
-        self.haar_scale = 1.2
+        self.haar_scale = 1.5
         self.min_neighbors = 3
         self.haar_flags = 0
 
@@ -92,7 +92,14 @@ class face_localizer:
 
         # extract info from result
         result = str.decode(result)
-        info = [int(x) for x in result.split(' ')]
+
+        print("RESULT", result)
+        if result == '':
+            info = [0 , 1 , 0]
+            print("----> Empty string exception!!! BIG OOF <----")
+        else: 
+            info = [int(x) for x in result.split(' ')]
+
         print('face info :', info)
 
         return info
@@ -217,7 +224,7 @@ class face_localizer:
 
         # Preprocessing
         gray = cv2.cvtColor(rgb_image, cv2.COLOR_BGR2GRAY)
-        img = cv2.equalizeHist(gray)
+        img = gray 
     
         image_scale = rgb_image.shape[1]
 
@@ -265,15 +272,17 @@ class face_localizer:
 
             # Find the distance to the detected face
             face_distance = float(np.nanmean(depth_image[y1d:y2d,x1d:x2d]))
+            
 
             #print('Distance to face', face_distance)
 
             # Get the time that the depth image was recieved
             depth_time = depth_image_message.header.stamp
-
+           
             # Find the location of the detected face
             pose = self.get_pose((x1,x2,y1,y2), face_distance, depth_time)
-
+            
+           
             if pose is not None:
 
                 # Create a marker used for visualization

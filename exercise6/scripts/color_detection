@@ -14,7 +14,7 @@ import numpy as np
 import sys
 
 bridge = CvBridge()
-clf = load(sys.path[0] + '/../color_classifier/svc2.joblib')
+clf = load(sys.path[0] + '/../color_classifier/svc4.joblib')
 colors = ['red', 'green', 'blue', 'yellow', 'white', 'black']
 
 def plot_hist(h, s):

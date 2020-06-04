@@ -215,8 +215,11 @@ class ring_localizer:
 
         img = np.nan_to_num(img)
         maks = np.amax(img)
+       
         if(maks > 0):
-            img = np.uint8(img * (255/maks))
+            img = img * (255/maks)
+
+        img = np.uint8(img)
 
         ret, th = cv2.threshold(img, 0,255,cv2.THRESH_BINARY + cv2.THRESH_OTSU)
 
@@ -292,6 +295,7 @@ class ring_localizer:
             if pose is not None:
                 # Create a marker used for visualization
                 color = self.color_client(rgb, cv2.bitwise_not(rgb_mask))
+                pose.position.z = 0.3
                 print("Ring color:", color)
                 self.marker_num += 1
                 self.ring_info.poses.append(pose)
