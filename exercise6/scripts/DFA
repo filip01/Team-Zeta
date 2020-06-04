@@ -5,7 +5,6 @@ from tf.transformations import quaternion_from_euler
 import sys
 import rospy
 import dlib
-import cv2
 import numpy as np
 import tf2_geometry_msgs
 import tf2_ros
@@ -31,6 +30,7 @@ from exercise4.msg import faces_info
 
 PI = 3.1415926535897 
 x_current = 247
+
 y_current = 260
 x_previous = 247
 y_previous = 260
@@ -45,6 +45,8 @@ rgb=[]
 
 arm_movement_pub = rospy.Publisher("/arm_command", String, queue_size=1)
 twist_pub = rospy.Publisher('/mobile_base/commands/velocity', Twist, queue_size=10)
+
+client = actionlib.SimpleActionClient('move_base',MoveBaseAction)
 
 sides = {"east": 0, "north": PI/float(2), "west": PI, "south": float(1.5)*PI}
 
@@ -232,9 +234,8 @@ def move_to_pose(client, to_pose):
     global map_transform
     global map_resolution
 
-    print("Sending to: ", to_pose.point.x, " ", to_pose.point.y, " angle: ", angle)
+    print("Sending to: ", to_pose.position.x, " ", to_pose.position.y)
 
-    q = quaternion_from_euler(0,0,angle)
     
     goal = MoveBaseGoal()
     goal.target_pose.header.frame_id = "map"
@@ -243,7 +244,6 @@ def move_to_pose(client, to_pose):
     client.send_goal(goal)
 
     wait = client.wait_for_result()
-    print(wait)
 
     if not wait:
         rospy.logerr("Action server not available!")
@@ -781,6 +781,7 @@ def speechRecog(question):
 
     confirmed = False
     output = ""
+    person = "Gargamel"
 
     while(confirmed == False):
 
@@ -799,13 +800,17 @@ def speechRecog(question):
                 display("Robot: I didnt expect that answer, Please repeat that..",1)
                 continue
         elif question == 'favColor':
+            if recognized.data.split(" ")[0] != "my":
+                display("Robot: I didnt expect that answer, Please repeat that..",1)
+                continue
             woman = "Woman: " + recognized.data
             str_ = "Robot : I heard: " + recognized.data + " Is that correct?"
             fav_color = recognized.data[4]
-            display(gargamel, 1)
+            display(woman, 1)
             display(str_, 1)
             output = fav_color
-        elif question == 'gargColor':
+            person = "Woman: "
+        elif question == 'gargWomanAck':
             gargamel = "Gargamel: " + recognized.data
             str_ = "Robot : I heard: " + recognized.data + " Is that correct?"
             display(gargamel, 1)
@@ -818,10 +823,10 @@ def speechRecog(question):
             print(e)
 
         if recognized.data == "yes":
-            display("Gargamel: yes", 1)
+            display(person+ ": yes", 1)
             confirmed = True
         else:
-            display("Gargamel: no", 1)
+            display(person+ ": no", 1)
             display("Robot: Please repeat that..",1)
      
     return output
@@ -1011,28 +1016,57 @@ def findGargamelsWoman(womanType):
 def approachMatch():
     global currentCandidates
     global married
+    global bridge
+    global client
+    global gargamel
+    global currentCandidateImg
     # TO DO: pojdi do zenske jo vprasaj za barvo, nazaj do gargamela ga vprasaj ce mu je vsec
     # JA: nadaljuj s cilindri in obroci
     # NE: odstrani zensko iz currentMatches in nadaljuj z naslednjo, ce naslednje ni nbe naredi nic
     # bo sel robot nazaj do gargamela in ga spet sprasval
-    candiate = currentCandidates[0]
+    candidate = currentCandidates[0]
 
-    move_to_pose(candidate.pose)
+    move_to_pose(client,candidate.pose)
 
     display("ROBOT: What is your favourite color?", 1)
     favColor = speechRecog("favColor")
 
-    najdiGargamela()
+    try:
+        currentCandidateImgMsg = rospy.wait_for_message("/camera/rgb/image_raw", Image)
+    except Exception as e:
+        print(e)
+    
+    try:
+        currentCandidateImg = bridge.imgmsg_to_cv2(currentCandidateImgMsg , "bgr8")
+    except CvBridgeError as e:
+        print(e)
 
-    display("ROBOT: Do you like the color " + favColor + "?", 1)
-    gargColor = speechRecog("gargColor")
+    display("Taking a picture",0)
+    
+    move_to_pose(client, gargamel)
 
-    if gargColor == 'yes':
+    display("Robot: Do you like this woman?", 1)
+    '''
+    print("BEFORE IMAGE")
+    cv2.imshow("Potential spouse",currentCandidateImg)
+    cv2.waitKey(1)
+    print("AFTER IMAGE")
+    '''
+    gargAnswer = speechRecog("gargWomanAck")
+
+    if gargAnswer == 'yes':
         # call other stuff
+        display("Found a match", 0)
         married = True
-    else
+
+    else:
         currentCandidates.pop(0)
-        approachMatch()
+
+        if len(currentCandidates)  > 0 :
+            display("Finding other suitable matches..", 0)
+            approachMatch()
+        
+            
 
 def raziskovanjeProstora():
     
@@ -1148,7 +1182,7 @@ def raziskovanjeProstora():
                rgb[i][j][0] = 150
                move_map[i][j] = 100
 
-    client = actionlib.SimpleActionClient('move_base',MoveBaseAction)
+    
     client.wait_for_server()
     
     move_bot(client, x_current,y_current, x_previous, y_previous)
@@ -1262,7 +1296,7 @@ def main():
     stanje = 0
 
     global informacije
-    informacije = False
+    informacije = False 
 
     raziskovanjeProstora()
 
