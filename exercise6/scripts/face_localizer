@@ -21,7 +21,6 @@ from cv_bridge import CvBridge, CvBridgeError
 from visualization_msgs.msg import Marker, MarkerArray
 from std_msgs.msg import ColorRGBA
 from exercise4.msg import faces_info
-import message_filters
 
 class face_localizer:
     def __init__(self):
@@ -48,10 +47,8 @@ class face_localizer:
         self.marker_num_2 = 1
 
         # Subscribe to the image and/or depth topic
-        self.image_sub = rospy.Subscriber("/camera/rgb/image_raw", Image, self.image_callback)
-        self.depth_sub = rospy.Subscriber("/camera/depth/image_raw", Image, self.depth_callback)
-        self.ts = message_filters.TimeSynchronizer([self.image_sub, self.depth_sub], 10)
-        self.ts.registerCallback(self.find_faces)
+        # self.image_sub = rospy.Subscriber("/camera/rgb/image_raw", Image, self.image_callback)
+       # self.depth_sub = rospy.Subscriber("/camera/depth/image_raw", Image, self.depth_callback)
 
         # Publiser for the visualization markers
         self.markers_pub = rospy.Publisher('face_markers', MarkerArray, queue_size=1000)
@@ -185,8 +182,8 @@ class face_localizer:
             
         return False    
 
-    def find_faces(self, rgb_image_message, depth_image_message):
-        '''
+    def find_faces(self):
+
        # print('I got a new image!')
         # Get the next rgb and depth images that are posted from the camera
         try:
@@ -199,7 +196,6 @@ class face_localizer:
         except Exception as e:
             print(e)
             return 0
-        '''
         #get current velocity
         try:
             velocity = rospy.wait_for_message("/mobile_base/commands/velocity", Twist, timeout=0.05)
@@ -419,14 +415,12 @@ def main():
 
         face_finder = face_localizer()
            
-        rospy.spin()
-        '''
         rate = rospy.Rate(10)
         print("face localization started!")
         while not rospy.is_shutdown():
             face_finder.find_faces()
             rate.sleep()
-        '''
+
         cv2.destroyAllWindows()
         face_finder.sock.close()
 
